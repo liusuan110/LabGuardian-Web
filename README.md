@@ -1,62 +1,73 @@
-# LabGuardian 元件与引脚识别网页
+# LabGuardian Ubuntu 演示前端
 
-这个文件夹是独立的网页演示入口。前端使用无构建依赖的 ES Module 架构，
-适合 Ubuntu 演示环境直接运行；后端复用项目主视觉链路：
+React + Vite + TypeScript 单工位完整诊断演示界面。
 
-1. `S1 ComponentDetector` 识别面包板上插入的元件
-2. `S1.5 PinRoiDetector` 在每个元件 ROI 内识别引脚
-3. 前端展示元件框、元件类别、置信度、引脚点和引脚名
+演示主线：
+
+```text
+上传面包板图片
+-> POST /api/v1/pipeline/run
+-> 展示 S1-S4 事实链、元件/引脚/孔位/网表
+-> POST /api/v1/angnt/ask
+-> 展示 Agent 诊断解释和建议
+```
 
 ## Ubuntu 启动
 
-Ubuntu 演示推荐：
+先启动后端：
 
 ```bash
-chmod +x start_web.sh
+cd /Users/liusuan/Desktop/LabGuardian-Server
+source .venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+再启动前端：
+
+```bash
+cd /Users/liusuan/Desktop/LabGuardian-web
+npm install
 ./start_web.sh
 ```
 
-脚本会自动查找同级目录里的 `LabGuardian-Server`，并优先使用
-`LabGuardian-Server/.venv/bin/python`。然后打开：
+打开：
 
 ```text
-http://127.0.0.1:8088
+http://127.0.0.1:5173
 ```
 
-也可以手动启动。网页端会自动查找同级目录里的 `LabGuardian-Server` 或
-`LabGuardian-Server-main`，如果后端目录不在默认位置，请先设置
-`LABGUARDIAN_PROJECT_ROOT`：
+如后端不在 `127.0.0.1:8000`：
 
 ```bash
-LABGUARDIAN_PROJECT_ROOT=/path/to/LabGuardian-Server \
-  /path/to/LabGuardian-Server/.venv/bin/python server.py
+VITE_API_BASE_URL=http://<backend-host>:8000 npm run dev -- --host 0.0.0.0
 ```
 
 ## 前端结构
 
-- `static/index.html`：页面骨架
-- `static/styles.css`：页面样式
-- `static/js/api.js`：识别接口请求和超时处理
-- `static/js/state.js`：页面状态
-- `static/js/render.js`：DOM 渲染
-- `static/js/main.js`：事件绑定和交互流程
+- `src/api/`：后端 API 封装
+- `src/types/`：pipeline / agent / UI 类型
+- `src/components/`：上传、Canvas 标注、阶段耗时、诊断、网表、原始 JSON
+- `src/features/demo/`：演示页 reducer、hooks 和主流程
+- `src/styles/`：全局布局和视觉样式
 
-## 依赖
-
-推荐直接使用后端项目自带的虚拟环境启动，例如：
+## 可用命令
 
 ```bash
-LABGUARDIAN_PROJECT_ROOT=/path/to/LabGuardian-Server \
-  /path/to/LabGuardian-Server/.venv/bin/python server.py
+npm run dev
+npm run typecheck
+npm run build
+npm run preview
 ```
 
-Ubuntu 演示不要携带 `vendor/`、历史 `runs/`、`uploads/` 或
-`ultralytics_config/`。这些目录要么是平台相关依赖，要么是运行时生成物。
+## 后端契约
 
-## 输出
+当前前端使用：
 
-每次识别会在 `runs/` 中生成：
+- `GET /health`
+- `GET /version`
+- `POST /api/v1/pipeline/run`
+- `POST /api/v1/angnt/ask`
+- `GET /api/v1/angnt/status/{job_id}`
 
-- `components_and_pins.png`
-- `components_only.png`
-- `component_pin_result.json`
+上传图片会在浏览器端转换为纯 base64 字符串，提交到
+`PipelineRequest.images_b64`，不包含 `data:image/...` 前缀。
