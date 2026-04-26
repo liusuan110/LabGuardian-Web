@@ -1,13 +1,9 @@
-import { AlertTriangle, Bot, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { AgentStatusResponse } from "../types/agent";
+import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { PipelineResult } from "../types/pipeline";
 import { asPercent } from "../utils/pipeline";
 
 type Props = {
   result: PipelineResult | null;
-  agentStatus: "idle" | "running" | "success" | "error";
-  agentResult: AgentStatusResponse | null;
-  agentError: string;
 };
 
 function riskIcon(risk: string | undefined) {
@@ -16,10 +12,7 @@ function riskIcon(risk: string | undefined) {
   return <ShieldCheck size={20} />;
 }
 
-export function DiagnosticsPanel({ result, agentStatus, agentResult, agentError }: Props) {
-  const agentAnswer = agentResult?.result?.answer;
-  const actions = agentResult?.result?.actions ?? [];
-
+export function DiagnosticsPanel({ result }: Props) {
   return (
     <aside className="diagnostics-panel">
       <section className={`risk-card risk-${result?.risk_level ?? "none"}`}>
@@ -52,26 +45,6 @@ export function DiagnosticsPanel({ result, agentStatus, agentResult, agentError 
             <p key={`${item}-${index}`}>{item}</p>
           ))}
         </div>
-      </section>
-
-      <section className="side-section agent-section">
-        <h2>
-          <Bot size={18} />
-          Agent 解释
-        </h2>
-        {agentStatus === "running" && <p className="muted">正在生成诊断解释...</p>}
-        {agentStatus === "error" && <p className="error-text">{agentError}</p>}
-        {agentAnswer ? <p className="agent-answer">{agentAnswer}</p> : null}
-        {actions.length ? (
-          <div className="action-list">
-            {actions.map((action) => (
-              <article key={`${action.action_type}-${action.label}`}>
-                <strong>{action.label}</strong>
-                <span>{action.detail}</span>
-              </article>
-            ))}
-          </div>
-        ) : null}
       </section>
     </aside>
   );

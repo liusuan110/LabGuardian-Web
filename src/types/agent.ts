@@ -50,3 +50,11 @@ export type AgentStatusResponse = {
   result: AgentJobResult | null;
   error: string | null;
 };
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: number;
+  actions?: AgentAction[];
+};

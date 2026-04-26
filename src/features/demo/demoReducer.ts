@@ -1,4 +1,4 @@
-import type { AgentStatusResponse } from "../../types/agent";
+import type { AgentAction, AgentStatusResponse, ChatMessage } from "../../types/agent";
 import type { PipelineResult, RailAssignments, VersionInfo } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 
@@ -21,6 +21,7 @@ export type DemoState = {
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
+  chatMessages: ChatMessage[];
 };
 
 export type DemoAction =
@@ -32,9 +33,10 @@ export type DemoAction =
   | { type: "run-start" }
   | { type: "run-success"; result: PipelineResult }
   | { type: "run-error"; error: string }
-  | { type: "agent-start" }
+  | { type: "agent-start"; prompt: string }
   | { type: "agent-success"; result: AgentStatusResponse }
-  | { type: "agent-error"; error: string };
+  | { type: "agent-error"; error: string }
+  | { type: "chat-assistant"; content: string; actions?: AgentAction[] };
 
 export const initialDemoState: DemoState = {
   stationId: "LG-DEMO-01",
@@ -60,6 +62,7 @@ export const initialDemoState: DemoState = {
   agentStatus: "idle",
   agentResult: null,
   agentError: "",
+  chatMessages: [],
 };
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
@@ -83,6 +86,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentResult: null,
         agentError: "",
         agentStatus: "idle",
+        chatMessages: [],
       };
     case "set-option":
       return { ...state, [action.key]: action.value };
@@ -97,11 +101,68 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "run-error":
       return { ...state, runState: "error", error: action.error };
     case "agent-start":
-      return { ...state, agentStatus: "running", agentError: "", agentResult: null };
+      return {
+        ...state,
+        agentStatus: "running",
+        agentError: "",
+        agentResult: null,
+        chatMessages: [
+          ...state.chatMessages,
+          {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: action.prompt,
+            createdAt: Date.now(),
+          },
+        ],
+      };
     case "agent-success":
-      return { ...state, agentStatus: "success", agentResult: action.result };
+      return {
+        ...state,
+        agentStatus: "success",
+        agentResult: action.result,
+        chatMessages: action.result.result?.answer
+          ? [
+              ...state.chatMessages,
+              {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: action.result.result.answer,
+                createdAt: Date.now(),
+                actions: action.result.result.actions,
+              },
+            ]
+          : state.chatMessages,
+      };
     case "agent-error":
-      return { ...state, agentStatus: "error", agentError: action.error };
+      return {
+        ...state,
+        agentStatus: "error",
+        agentError: action.error,
+        chatMessages: [
+          ...state.chatMessages,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Agent 暂时不可用：${action.error}`,
+            createdAt: Date.now(),
+          },
+        ],
+      };
+    case "chat-assistant":
+      return {
+        ...state,
+        chatMessages: [
+          ...state.chatMessages,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: action.content,
+            createdAt: Date.now(),
+            actions: action.actions,
+          },
+        ],
+      };
     default:
       return state;
   }

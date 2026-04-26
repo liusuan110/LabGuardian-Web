@@ -1,4 +1,5 @@
 import { useReducer } from "react";
+import { AgentChat } from "../../components/AgentChat";
 import { AppHeader } from "../../components/AppHeader";
 import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
 import { MetricStrip } from "../../components/MetricStrip";
@@ -10,13 +11,15 @@ import { StageTimeline } from "../../components/StageTimeline";
 import { UploadPanel } from "../../components/UploadPanel";
 import { fileToBase64 } from "../../utils/file";
 import { demoReducer, initialDemoState } from "./demoReducer";
+import { useAgentChat } from "./useAgentChat";
 import { useBackendStatus } from "./useBackendStatus";
 import { usePipelineRun } from "./usePipelineRun";
 
 export function DemoPage() {
   const [state, dispatch] = useReducer(demoReducer, initialDemoState);
   useBackendStatus(dispatch);
-  const { execute } = usePipelineRun(state, dispatch);
+  const { send } = useAgentChat(state, dispatch);
+  const { execute } = usePipelineRun(state, dispatch, send);
 
   async function handleFileSelected(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -72,12 +75,15 @@ export function DemoPage() {
           )}
         </section>
 
-        <DiagnosticsPanel
-          result={state.pipelineResult}
-          agentStatus={state.agentStatus}
-          agentResult={state.agentResult}
-          agentError={state.agentError}
-        />
+        <div className="right-column">
+          <DiagnosticsPanel result={state.pipelineResult} />
+          <AgentChat
+            messages={state.chatMessages}
+            status={state.agentStatus}
+            canSend={Boolean(state.pipelineResult)}
+            onSend={(message) => send(message)}
+          />
+        </div>
       </section>
 
       <section className="bottom-grid">
