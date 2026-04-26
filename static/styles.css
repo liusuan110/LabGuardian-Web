@@ -95,6 +95,17 @@ h2 {
   padding: 10px 14px;
 }
 
+.status-pill[data-tone="busy"] {
+  border-color: #9ab1aa;
+  background: #e6f4f1;
+}
+
+.status-pill[data-tone="warn"] {
+  border-color: #e1b36b;
+  background: #fff7e8;
+  color: var(--warning);
+}
+
 .download-link {
   display: none;
   padding: 9px 13px;
@@ -250,6 +261,10 @@ h2 {
 .primary-action:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+.primary-action.is-loading {
+  background: var(--accent-dark);
 }
 
 .tabs {

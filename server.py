@@ -1,24 +1,20 @@
 from __future__ import annotations
 
 import base64
+import email
+import email.parser
+import email.policy
 import json
 import mimetypes
 import os
 import sys
 import traceback
 import uuid
-import warnings
+from dataclasses import dataclass
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 from urllib.parse import unquote, urlparse
-
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    message="'.*cgi.*' is deprecated.*",
-)
-import cgi  # noqa: E402
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -26,6 +22,7 @@ APP_DIR = Path(__file__).resolve().parent
 def _default_project_root() -> Path:
     board_root = APP_DIR.parent
     candidates = [
+        board_root / "LabGuardian-Server",
         board_root / "LabGuardian-Server-main",
         board_root / "LabGuardian-Server-main" / "LabGuardian-Server-main",
         board_root,
@@ -41,15 +38,58 @@ ROOT_DIR = Path(os.environ.get("LABGUARDIAN_PROJECT_ROOT", DEFAULT_ROOT_DIR)).ex
 STATIC_DIR = APP_DIR / "static"
 RUNS_DIR = Path(os.environ.get("LABGUARDIAN_RUNS_DIR", APP_DIR / "runs")).expanduser().resolve()
 UPLOADS_DIR = Path(os.environ.get("LABGUARDIAN_UPLOADS_DIR", APP_DIR / "uploads")).expanduser().resolve()
-VENDOR_DIR = APP_DIR / "vendor"
 ULTRALYTICS_CONFIG_DIR = APP_DIR / "ultralytics_config"
 
 ULTRALYTICS_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("YOLO_CONFIG_DIR", str(ULTRALYTICS_CONFIG_DIR))
-if VENDOR_DIR.exists() and str(VENDOR_DIR) not in sys.path:
-    sys.path.insert(0, str(VENDOR_DIR))
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+
+@dataclass
+class UploadedFile:
+    filename: str
+    content: bytes
+
+
+def _parse_multipart_form(
+    *,
+    headers: Any,
+    body_stream: BinaryIO,
+) -> tuple[dict[str, str], dict[str, UploadedFile]]:
+    content_type = headers.get("Content-Type", "")
+    content_length = int(headers.get("Content-Length", "0") or "0")
+    if not content_type.startswith("multipart/form-data"):
+        raise ValueError("Content-Type must be multipart/form-data.")
+    if content_length <= 0:
+        raise ValueError("Request body is empty.")
+
+    body = body_stream.read(content_length)
+    raw_message = (
+        f"Content-Type: {content_type}\r\n"
+        "MIME-Version: 1.0\r\n\r\n"
+    ).encode("utf-8") + body
+    message = email.parser.BytesParser(policy=email.policy.default).parsebytes(raw_message)
+    if not message.is_multipart():
+        raise ValueError("Request body is not a valid multipart form.")
+
+    fields: dict[str, str] = {}
+    files: dict[str, UploadedFile] = {}
+    for part in message.iter_parts():
+        disposition = part.get_content_disposition()
+        if disposition != "form-data":
+            continue
+        name = part.get_param("name", header="content-disposition")
+        if not name:
+            continue
+        filename = part.get_filename()
+        payload = part.get_payload(decode=True) or b""
+        if filename is not None:
+            files[name] = UploadedFile(filename=filename, content=payload)
+        else:
+            charset = part.get_content_charset() or "utf-8"
+            fields[name] = payload.decode(charset, errors="replace")
+    return fields, files
 
 
 def _json_safe(value: Any) -> Any:
@@ -345,23 +385,15 @@ class BreadboardDemoHandler(SimpleHTTPRequestHandler):
         self._send_json(payload)
 
     def _handle_analyze(self) -> dict[str, Any]:
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={
-                "REQUEST_METHOD": "POST",
-                "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-                "CONTENT_LENGTH": self.headers.get("Content-Length", "0"),
-            },
-        )
+        fields, files = _parse_multipart_form(headers=self.headers, body_stream=self.rfile)
 
-        file_item = form["image"] if "image" in form else None
-        if file_item is None or not getattr(file_item, "filename", ""):
+        file_item = files.get("image")
+        if file_item is None or not file_item.filename:
             raise ValueError("Please upload a breadboard image.")
 
-        conf = float(form.getfirst("conf", "0.25"))
-        iou = float(form.getfirst("iou", "0.5"))
-        imgsz = int(form.getfirst("imgsz", "960"))
+        conf = float(fields.get("conf", "0.25"))
+        iou = float(fields.get("iou", "0.5"))
+        imgsz = int(fields.get("imgsz", "960"))
         if not (0.01 <= conf <= 0.99):
             raise ValueError("conf must be between 0.01 and 0.99.")
         if not (0.01 <= iou <= 0.99):
@@ -369,7 +401,7 @@ class BreadboardDemoHandler(SimpleHTTPRequestHandler):
         if imgsz < 320 or imgsz > 1920:
             raise ValueError("imgsz must be between 320 and 1920.")
 
-        content = file_item.file.read()
+        content = file_item.content
         if not content:
             raise ValueError("The uploaded image is empty.")
 
