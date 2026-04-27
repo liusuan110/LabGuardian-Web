@@ -75,16 +75,15 @@ export function DemoPage() {
           )}
         </section>
 
-        <div className="right-column">
-          <DiagnosticsPanel result={state.pipelineResult} />
-          <AgentChat
-            messages={state.chatMessages}
-            status={state.agentStatus}
-            canSend={Boolean(state.pipelineResult)}
-            onSend={(message) => send(message)}
-          />
-        </div>
+        <DiagnosticsPanel result={state.pipelineResult} />
       </section>
+
+      <AgentChat
+        messages={state.chatMessages}
+        status={state.agentStatus}
+        canSend={Boolean(state.pipelineResult)}
+        onSend={(message) => send(message)}
+      />
 
       <section className="bottom-grid">
         <StageTimeline result={state.pipelineResult} />

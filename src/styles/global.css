@@ -166,16 +166,26 @@ h2 {
 
 .demo-grid {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 360px;
+  grid-template-columns: 360px minmax(0, 1fr) 360px;
   gap: 16px;
   align-items: start;
 }
 
-.input-panel,
+.input-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  align-content: center;
+  height: 700px;
+}
+
 .diagnostics-panel {
   display: grid;
   gap: 14px;
   padding: 16px;
+  overflow-y: auto;
+  align-content: start;
+  height: 700px;
 }
 
 .right-column {
@@ -287,6 +297,11 @@ h2 {
 .main-stage {
   min-width: 0;
   padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  height: 700px;
+  overflow-y: auto;
 }
 
 .stage-header {
@@ -447,6 +462,7 @@ h2 {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
+  margin-top: 16px;
 }
 
 .chat-heading {
