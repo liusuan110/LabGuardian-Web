@@ -20,7 +20,7 @@ export function stageLabel(stage: PipelineStageName) {
 }
 
 export function getStage(result: PipelineResult | null, stage: PipelineStageName): StageResult | null {
-  return result?.stages.find((item) => item.stage === stage) ?? null;
+  return (Array.isArray(result?.stages) ? result.stages : []).find((item) => item.stage === stage) ?? null;
 }
 
 export function getStageData(result: PipelineResult | null, stage: PipelineStageName): StageData {
@@ -28,15 +28,18 @@ export function getStageData(result: PipelineResult | null, stage: PipelineStage
 }
 
 export function getDetections(result: PipelineResult | null): Detection[] {
-  return getStageData(result, "detect").detections ?? [];
+  const detections = getStageData(result, "detect").detections;
+  return Array.isArray(detections) ? detections : [];
 }
 
 export function getPinComponents(result: PipelineResult | null): PipelineComponent[] {
-  return getStageData(result, "pin_detect").components ?? [];
+  const components = getStageData(result, "pin_detect").components;
+  return Array.isArray(components) ? components : [];
 }
 
 export function getMappedComponents(result: PipelineResult | null): PipelineComponent[] {
-  return getStageData(result, "mapping").components ?? [];
+  const components = getStageData(result, "mapping").components;
+  return Array.isArray(components) ? components : [];
 }
 
 export function getNetCount(result: PipelineResult | null) {

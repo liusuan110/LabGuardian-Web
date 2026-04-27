@@ -13,6 +13,9 @@ function riskIcon(risk: string | undefined) {
 }
 
 export function DiagnosticsPanel({ result }: Props) {
+  const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
+  const riskReasons = Array.isArray(result?.risk_reasons) ? result.risk_reasons : [];
+
   return (
     <aside className="diagnostics-panel">
       <section className={`risk-card risk-${result?.risk_level ?? "none"}`}>
@@ -30,7 +33,7 @@ export function DiagnosticsPanel({ result }: Props) {
       <section className="side-section">
         <h2>诊断条目</h2>
         <div className="diagnostic-list">
-          {(result?.diagnostics?.length ? result.diagnostics : ["运行完整诊断后显示 validator 输出。"]).map(
+          {(diagnostics.length ? diagnostics : ["运行完整诊断后显示 validator 输出。"]).map(
             (item, index) => (
               <p key={`${item}-${index}`}>{item}</p>
             ),
@@ -41,7 +44,7 @@ export function DiagnosticsPanel({ result }: Props) {
       <section className="side-section">
         <h2>风险原因</h2>
         <div className="diagnostic-list">
-          {(result?.risk_reasons?.length ? result.risk_reasons : ["暂无高风险原因。"]).map((item, index) => (
+          {(riskReasons.length ? riskReasons : ["暂无高风险原因。"]).map((item, index) => (
             <p key={`${item}-${index}`}>{item}</p>
           ))}
         </div>

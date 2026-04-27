@@ -39,7 +39,7 @@ export function AgentChat({ messages, status, canSend, onSend }: Props) {
               </div>
               <div className="chat-bubble">
                 <p>{message.content}</p>
-                {message.actions?.length ? (
+                {Array.isArray(message.actions) && message.actions.length ? (
                   <div className="chat-actions">
                     {message.actions.map((action) => (
                       <span key={`${message.id}-${action.action_type}-${action.label}`}>

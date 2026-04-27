@@ -1,6 +1,7 @@
 import type { AgentAction, AgentStatusResponse, ChatMessage } from "../../types/agent";
 import type { PipelineResult, RailAssignments, VersionInfo } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
+import { createClientId } from "../../utils/id";
 
 export type DemoState = {
   stationId: string;
@@ -109,7 +110,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: [
           ...state.chatMessages,
           {
-            id: crypto.randomUUID(),
+            id: createClientId(),
             role: "user",
             content: action.prompt,
             createdAt: Date.now(),
@@ -125,7 +126,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
           ? [
               ...state.chatMessages,
               {
-                id: crypto.randomUUID(),
+                id: createClientId(),
                 role: "assistant",
                 content: action.result.result.answer,
                 createdAt: Date.now(),
@@ -142,7 +143,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: [
           ...state.chatMessages,
           {
-            id: crypto.randomUUID(),
+            id: createClientId(),
             role: "assistant",
             content: `Agent 暂时不可用：${action.error}`,
             createdAt: Date.now(),
@@ -155,7 +156,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: [
           ...state.chatMessages,
           {
-            id: crypto.randomUUID(),
+            id: createClientId(),
             role: "assistant",
             content: action.content,
             createdAt: Date.now(),
