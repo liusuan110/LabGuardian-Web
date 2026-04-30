@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { PipelineComponent, PipelineResult } from "../types/pipeline";
+import type { PipelineComponent, PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
 import type { CanvasMode } from "../types/ui";
-import { getDetections, getMappedComponents, getPinComponents } from "../utils/pipeline";
+import { getDetections, getMappedComponents, getPinComponents, getStageData } from "../utils/pipeline";
 
 type Props = {
   imageUrl: string;
-  result: PipelineResult | null;
+  result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   mode: CanvasMode;
 };
 
@@ -80,6 +80,67 @@ function drawComponents(ctx: CanvasRenderingContext2D, components: PipelineCompo
   });
 }
 
+function PinCoordinateView({ result }: { result: PipelineResult }) {
+  const mappingData = getStageData(result, "mapping");
+  
+  const components = mappingData.components as Array<{
+    component_id?: string;
+    component_type?: string;
+    pins?: Array<{
+      pin_id?: number;
+      pin_name?: string;
+      hole_id?: string;
+      electrical_node_id?: string;
+    }>;
+  }> || [];
+
+  if (components.length === 0) {
+    return (
+      <section className="mapping-panel">
+        <div className="panel-heading">
+          <h2>孔位映射</h2>
+        </div>
+        <p className="muted">等待 S2 孔位映射阶段完成...</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mapping-panel">
+      <div className="panel-heading">
+        <h2>元件引脚面包板坐标</h2>
+        <span>{components.length} 个元件</span>
+      </div>
+
+      <div className="pin-coordinate-list">
+        {components.map(comp => (
+          <div key={comp.component_id} className="pin-coordinate-card">
+            <div className="component-header">
+              <span className="component-id">{comp.component_id}</span>
+              <span className="component-type">{comp.component_type}</span>
+            </div>
+            <div className="pins-container">
+              {comp.pins?.map(pin => (
+                <div key={pin.pin_id} className="pin-item">
+                  <span className="pin-name">{pin.pin_name || `pin${pin.pin_id}`}</span>
+                  <span className="arrow">→</span>
+                  <span className="hole-coord">{pin.hole_id || "-"}</span>
+                  {pin.electrical_node_id && (
+                    <>
+                      <span className="arrow">→</span>
+                      <span className="net-id">{pin.electrical_node_id}</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function ResultCanvas({ imageUrl, result, mode }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -126,8 +187,15 @@ export function ResultCanvas({ imageUrl, result, mode }: Props) {
     }
   }, [image, mode, result]);
 
+  if (mode === "mapping") {
+    if (!result || !("stages" in result)) {
+      return <div className="empty-stage compact">等待 S2 孔位映射阶段完成...</div>;
+    }
+    return <PinCoordinateView result={result as PipelineResult} />;
+  }
+
   if (!imageUrl) {
-    return <div className="empty-stage">上传图片后显示检测框、引脚点和孔位映射。</div>;
+    return <div className="empty-stage">上传图片后显示检测框、引脚点。</div>;
   }
 
   return <canvas ref={canvasRef} className="result-canvas" />;

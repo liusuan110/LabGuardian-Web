@@ -1,0 +1,92 @@
+.electrical-connections {
+  margin-top: 16px;
+}
+
+.electrical-connections h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.connection-list {
+  display: grid;
+  gap: 12px;
+}
+
+.connection-group {
+  padding: 12px 16px;
+  background: #fbfcfc;
+  border-left: 4px solid #14796b;
+  border-radius: 0 8px 8px 0;
+}
+
+.connection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.net-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.net-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.power-tag {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.power-tag.vcc {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.power-tag.gnd {
+  background: #f5f5f5;
+  color: #424242;
+}
+
+.connected-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.connected-pin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.comp-ref {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.pin-ref {
+  padding: 1px 6px;
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.hole-ref {
+  font-family: monospace;
+  color: var(--accent-dark);
+}

@@ -1,3 +1,6 @@
+@import "./pin-coordinate.css";
+@import "./electrical-connections.css";
+
 :root {
   color-scheme: light;
   --ink: #17211f;
@@ -292,6 +295,14 @@ h2 {
 
 .run-button:disabled {
   opacity: 0.5;
+}
+
+.run-button.secondary {
+  background: #60706b;
+}
+
+.run-button.secondary:hover:not(:disabled) {
+  background: #4a5854;
 }
 
 .main-stage {
@@ -752,4 +763,995 @@ h2 {
   .empty-stage {
     min-height: 320px;
   }
+}
+
+/* 电路分析网表样式 */
+.connection-section,
+.net-section,
+.isolated-section,
+.components-section {
+  margin-bottom: 20px;
+}
+
+.connection-section h3,
+.net-section h3,
+.isolated-section h3,
+.components-section h3 {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connection-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.connection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.comp-name {
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.connector {
+  color: #4caf50;
+  font-size: 14px;
+}
+
+.net-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.net-header strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.power-role {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.power-role.signal {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.power-role.VCC {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
+.power-role.GND {
+  background: #fce4ec;
+  color: #e91e63;
+}
+
+.power-role.power {
+  background: #e8f5e9;
+  color: #4caf50;
+}
+
+.net-members {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.net-members .label {
+  color: var(--muted);
+}
+
+.net-members .members {
+  color: var(--text);
+  font-family: monospace;
+}
+
+.isolated-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.isolated-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.isolated-item .comp-id {
+  font-weight: 600;
+  color: #e65100;
+}
+
+.isolated-item .comp-type {
+  color: #ff8f00;
+  font-size: 11px;
+}
+
+.components-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.component-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.comp-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.comp-header strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.comp-header .comp-type {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.comp-header .confidence {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pins-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pin-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.pin-label {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.pin-hole {
+  color: var(--muted);
+}
+
+.pin-net {
+  padding: 1px 6px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.pin-net.isolated {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* 端口可视化样�?*/
+.stats-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fbfcfc;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stat-value.power-rail {
+  color: #be3144;
+}
+
+.stat-value.signal {
+  color: #14796b;
+}
+
+.stat-value.isolated {
+  color: #b7791f;
+}
+
+.net-filter-section {
+  margin-bottom: 16px;
+}
+
+.net-filter-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+
+.net-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.net-filter-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fbfcfc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.net-filter-btn:hover {
+  background: #f0f4f3;
+}
+
+.net-filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.selected-net-info {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-left: 3px solid var(--accent);
+  background: #fbfcfc;
+  border-radius: 0 8px 8px 0;
+}
+
+.net-info-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.net-info-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.power-role-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.power-role-badge.signal {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.power-role-badge.vcc {
+  background: #ffebee;
+  color: #be3144;
+}
+
+.power-role-badge.gnd {
+  background: #f5f5f5;
+  color: #37474f;
+}
+
+.power-role-badge.vdd {
+  background: #fff3e0;
+  color: #ff5722;
+}
+
+.power-role-badge.vss {
+  background: #e8eaf6;
+  color: #546e7a;
+}
+
+.net-info-content {
+  display: flex;
+  gap: 20px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.info-value {
+  font-size: 12px;
+  color: var(--ink);
+  font-family: monospace;
+}
+
+.port-table-section {
+  margin-bottom: 20px;
+}
+
+.port-table-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--ink);
+}
+
+.port-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.port-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.port-table th {
+  padding: 10px 12px;
+  text-align: left;
+  background: #f0f4f3;
+  font-weight: 600;
+  color: var(--accent-dark);
+  white-space: nowrap;
+  border-bottom: 2px solid var(--line);
+}
+
+.port-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.port-row {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.port-row:hover {
+  background: #f6f9f8;
+}
+
+.port-row.highlighted {
+  background: rgba(20, 121, 107, 0.08);
+}
+
+.port-row.hovered {
+  background: rgba(20, 121, 107, 0.12);
+}
+
+.comp-id-cell {
+  font-family: monospace;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.comp-type-cell {
+  padding: 0;
+}
+
+.comp-type-badge {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.pin-id-cell {
+  font-family: monospace;
+  color: var(--muted);
+}
+
+.pin-name-cell {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.coord-cell {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+.coord-cell.power-rail {
+  color: #be3144;
+  font-weight: 700;
+}
+
+.hole-id-cell {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.power-rail-cell {
+  text-align: center;
+}
+
+.power-rail-icon {
+  color: #be3144;
+  font-size: 14px;
+}
+
+.not-power-rail {
+  color: #ccc;
+}
+
+.net-id-cell {
+  padding: 0;
+}
+
+.net-id-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.power-role-cell {
+  padding: 0;
+}
+
+.power-role-tag {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.port-tooltip {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 280px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.tooltip-header {
+  padding: 10px 12px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tooltip-content {
+  padding: 10px 12px;
+}
+
+.tooltip-content div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f4f3;
+}
+
+.tooltip-content div:last-child {
+  border-bottom: none;
+}
+
+.tooltip-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tooltip-value {
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+  text-align: right;
+}
+
+.network-summary {
+  margin-top: 20px;
+}
+
+.network-summary h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.network-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.network-card {
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.network-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(21, 47, 42, 0.1);
+}
+
+.network-card.power-network {
+  background: #fff5f5;
+}
+
+.network-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.network-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.network-header strong {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.power-role-mini {
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.power-role-mini.signal {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.power-role-mini.vcc {
+  background: #ffebee;
+  color: #be3144;
+}
+
+.power-role-mini.gnd {
+  background: #f5f5f5;
+  color: #37474f;
+}
+
+.network-body {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.network-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.network-stat .stat-label {
+  font-size: 10px;
+}
+
+.network-stat .stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.network-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.port-mini {
+  padding: 2px 6px;
+  background: #e8f5f1;
+  color: var(--accent-dark);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.port-more {
+  padding: 2px 6px;
+  background: #f0f4f3;
+  color: var(--muted);
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+/* 孔位映射样式 */
+.mapping-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.mapping-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.mapping-section h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent-dark);
+}
+
+.components-mapping,
+.electrical-connections,
+.power-rail-info {
+  margin-bottom: 20px;
+}
+
+.component-mapping-list {
+  display: grid;
+  gap: 10px;
+}
+
+.component-mapping-card {
+  padding: 12px;
+  background: #fbfcfc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.mapping-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mapping-header .comp-id {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mapping-header .comp-type {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mapping-header .confidence {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pins-mapping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pin-mapping-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.pin-label {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.arrow {
+  color: var(--muted);
+}
+
+.hole-coord {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+.node-id {
+  padding: 1px 6px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.electrical-connections .connection-list {
+  display: grid;
+  gap: 10px;
+}
+
+.connection-group {
+  padding: 12px;
+  background: #fbfcfc;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+}
+
+.connection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.net-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.net-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.power-tag {
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.power-tag.vcc {
+  background: #ffebee;
+  color: #be3144;
+}
+
+.power-tag.gnd {
+  background: #f5f5f5;
+  color: #37474f;
+}
+
+.connected-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.connected-pin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.comp-ref {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.pin-ref {
+  color: var(--muted);
+}
+
+.hole-ref {
+  font-family: monospace;
+  color: var(--accent-dark);
+}
+
+.power-table {
+  overflow-x: auto;
+}
+
+.power-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.power-table th,
+.power-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.power-table th {
+  background: #f0f4f3;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+.rail-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rail-pins span {
+  padding: 2px 6px;
+  background: #e8f5f1;
+  color: var(--accent-dark);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+/* 孔位映射面板样式 */
+.mapping-panel {
+  padding: 16px;
+}
+
+.mapping-panel .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mapping-panel .panel-heading h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mapping-panel .panel-heading span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mapping-panel .mapping-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.mapping-panel .component-mapping-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mapping-panel .component-mapping-card {
+  padding: 12px;
+  background: #fbfcfc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.mapping-panel .mapping-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mapping-panel .mapping-header .comp-id {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mapping-panel .mapping-header .comp-type {
+  padding: 2px 8px;
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mapping-panel .pins-mapping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mapping-panel .pin-mapping-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.mapping-panel .pin-label {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.mapping-panel .arrow {
+  color: var(--muted);
+}
+
+.mapping-panel .hole-coord {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+.mapping-panel .node-id {
+  padding: 1px 6px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: monospace;
 }

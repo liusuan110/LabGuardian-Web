@@ -5,6 +5,8 @@ import type {
   PipelineStageName,
   StageData,
   StageResult,
+  CircuitAnalysisResult,
+  PortVisualizationResult,
 } from "../types/pipeline";
 
 const STAGE_LABELS: Record<PipelineStageName, string> = {
@@ -23,28 +25,59 @@ export function getStage(result: PipelineResult | null, stage: PipelineStageName
   return (Array.isArray(result?.stages) ? result.stages : []).find((item) => item.stage === stage) ?? null;
 }
 
-export function getStageData(result: PipelineResult | null, stage: PipelineStageName): StageData {
-  return getStage(result, stage)?.data ?? {};
+export function getStageData(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null, stage: PipelineStageName): StageData {
+  if (!result || "stages" in result === false) return {};
+  return getStage(result as PipelineResult, stage)?.data ?? {};
 }
 
-export function getDetections(result: PipelineResult | null): Detection[] {
-  const detections = getStageData(result, "detect").detections;
+export function getDetections(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): Detection[] {
+  if (!result || "stages" in result === false) return [];
+  const detections = getStageData(result as PipelineResult, "detect").detections;
   return Array.isArray(detections) ? detections : [];
 }
 
-export function getPinComponents(result: PipelineResult | null): PipelineComponent[] {
-  const components = getStageData(result, "pin_detect").components;
+export function getPinComponents(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): PipelineComponent[] {
+  if (!result || "stages" in result === false) return [];
+  const components = getStageData(result as PipelineResult, "pin_detect").components;
   return Array.isArray(components) ? components : [];
 }
 
-export function getMappedComponents(result: PipelineResult | null): PipelineComponent[] {
-  const components = getStageData(result, "mapping").components;
+export function getMappedComponents(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): PipelineComponent[] {
+  if (!result) return [];
+  
+  if ("components" in result) {
+    const circuitResult = result as CircuitAnalysisResult;
+    if ("pins" in (circuitResult.components[0] || {})) {
+      return circuitResult.components.map((comp) => ({
+        component_id: comp.component_id,
+        component_type: comp.component_type,
+        class_name: comp.component_type,
+        package_type: comp.package_type,
+        bbox: comp.bbox,
+        confidence: comp.confidence,
+        pins: comp.pins.map((pin) => ({
+          pin_id: pin.pin_id,
+          pin_name: pin.pin_name,
+          hole_id: pin.hole_id,
+          electrical_node_id: pin.electrical_node_id,
+        })),
+      }));
+    }
+  }
+  
+  const components = getStageData(result as PipelineResult, "mapping").components;
   return Array.isArray(components) ? components : [];
 }
 
-export function getNetCount(result: PipelineResult | null) {
-  const netlist = getStageData(result, "topology").netlist_v2;
-  return result?.net_count || netlist?.nets?.length || 0;
+export function getNetCount(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): number {
+  if (!result) return 0;
+  
+  if ("net_count" in result) {
+    return result.net_count;
+  }
+  
+  const netlist = getStageData(result as PipelineResult, "topology").netlist_v2;
+  return (result as PipelineResult).net_count || netlist?.nets?.length || 0;
 }
 
 export function asPercent(value: number | undefined) {

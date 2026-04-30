@@ -1,4 +1,5 @@
-import { runPipeline } from "../../api/pipeline";
+import { runPipeline, analyzeCircuit, visualizePorts } from "../../api/pipeline";
+import type { CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
 import type { DemoAction, DemoState } from "./demoReducer";
 
 export function usePipelineRun(
@@ -30,5 +31,63 @@ export function usePipelineRun(
     }
   }
 
-  return { execute };
+  async function executeCircuitAnalysis() {
+    if (!state.file || !state.base64 || state.runState === "running") return;
+
+    dispatch({ type: "run-start" });
+    try {
+      const result: CircuitAnalysisResult = await analyzeCircuit({
+        station_id: state.stationId,
+        images_b64: [state.base64],
+        conf: state.conf,
+        iou: state.iou,
+        imgsz: state.imgsz,
+        reference_circuit: null,
+        rail_assignments: state.rails,
+      });
+      
+      console.log("电路分析完成:", result);
+      console.log("元件列表:", result.components);
+      console.log("网表信息:", result.nets);
+      console.log("拓扑图:", result.topology_graph);
+      
+      dispatch({ type: "run-success", result: result });
+    } catch (error) {
+      dispatch({
+        type: "run-error",
+        error: error instanceof Error ? error.message : "电路分析失败",
+      });
+    }
+  }
+
+  async function executePortVisualization() {
+    if (!state.file || !state.base64 || state.runState === "running") return;
+
+    dispatch({ type: "run-start" });
+    try {
+      const result: PortVisualizationResult = await visualizePorts({
+        station_id: state.stationId,
+        images_b64: [state.base64],
+        conf: state.conf,
+        iou: state.iou,
+        imgsz: state.imgsz,
+        reference_circuit: null,
+        rail_assignments: state.rails,
+      });
+      
+      console.log("端口可视化完成:", result);
+      console.log("端口列表:", result.ports);
+      console.log("网络信息:", result.nets);
+      console.log("元件信息:", result.components);
+      
+      dispatch({ type: "run-success", result: result });
+    } catch (error) {
+      dispatch({
+        type: "run-error",
+        error: error instanceof Error ? error.message : "端口可视化失败",
+      });
+    }
+  }
+
+  return { execute, executeCircuitAnalysis, executePortVisualization };
 }

@@ -1,9 +1,9 @@
 import { CircuitBoard, Gauge, GitBranch, ShieldCheck } from "lucide-react";
-import type { PipelineResult } from "../types/pipeline";
+import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
 import { asPercent, getNetCount } from "../utils/pipeline";
 
 type Props = {
-  result: PipelineResult | null;
+  result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
 };
 
 export function MetricStrip({ result }: Props) {
@@ -20,12 +20,12 @@ export function MetricStrip({ result }: Props) {
     },
     {
       label: "完成度",
-      value: result ? asPercent(result.progress) : "-",
+      value: result && "progress" in result ? asPercent(result.progress) : "-",
       icon: <Gauge size={18} />,
     },
     {
       label: "风险",
-      value: result?.risk_level ?? "-",
+      value: result && "risk_level" in result ? result.risk_level : "-",
       icon: <ShieldCheck size={18} />,
     },
   ];

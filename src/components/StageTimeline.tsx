@@ -1,14 +1,16 @@
 import { CheckCircle2 } from "lucide-react";
-import type { PipelineResult, PipelineStageName } from "../types/pipeline";
+import type { PipelineResult, CircuitAnalysisResult, PipelineStageName, PortVisualizationResult } from "../types/pipeline";
 import { formatDuration, getStage, stageLabel } from "../utils/pipeline";
 
 const order: PipelineStageName[] = ["detect", "pin_detect", "mapping", "topology", "validate"];
 
 type Props = {
-  result: PipelineResult | null;
+  result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
 };
 
 export function StageTimeline({ result }: Props) {
+  const hasStages = result && "stages" in result;
+  
   return (
     <section className="stage-panel">
       <div className="panel-heading">
@@ -16,8 +18,8 @@ export function StageTimeline({ result }: Props) {
         <span>{result ? formatDuration(result.total_duration_ms) : "等待运行"}</span>
       </div>
       <div className="stage-list">
-        {order.map((stage) => {
-          const item = getStage(result, stage);
+        {hasStages ? order.map((stage) => {
+          const item = getStage(result as PipelineResult, stage);
           return (
             <div className={`stage-item ${item ? "done" : ""}`} key={stage}>
               <CheckCircle2 size={17} />
@@ -25,7 +27,7 @@ export function StageTimeline({ result }: Props) {
               <strong>{formatDuration(item?.duration_ms)}</strong>
             </div>
           );
-        })}
+        }) : null}
       </div>
     </section>
   );

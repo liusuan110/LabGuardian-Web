@@ -1,18 +1,21 @@
 import type { AgentStatusResponse } from "../types/agent";
-import type { PipelineResult } from "../types/pipeline";
+import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
 
 type Props = {
-  pipeline: PipelineResult | null;
+  pipeline: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   agent: AgentStatusResponse | null;
   runtimeMetadata: Record<string, unknown> | null;
 };
 
 export function RawJsonPanel({ pipeline, agent, runtimeMetadata }: Props) {
+  const hasRuntimeMetadata = pipeline && "runtime_metadata" in pipeline;
+  const metadata = runtimeMetadata ?? (hasRuntimeMetadata ? pipeline.runtime_metadata : {});
+
   return (
     <section className="raw-panel">
       <details open>
         <summary>runtime_metadata</summary>
-        <pre>{JSON.stringify(runtimeMetadata ?? pipeline?.runtime_metadata ?? {}, null, 2)}</pre>
+        <pre>{JSON.stringify(metadata, null, 2)}</pre>
       </details>
       <details>
         <summary>Pipeline 原始输出</summary>

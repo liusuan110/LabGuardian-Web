@@ -90,7 +90,7 @@ export function DemoPage() {
         <RawJsonPanel
           pipeline={state.pipelineResult}
           agent={state.agentResult}
-          runtimeMetadata={state.pipelineResult?.runtime_metadata ?? null}
+          runtimeMetadata={state.pipelineResult && "runtime_metadata" in state.pipelineResult ? state.pipelineResult.runtime_metadata : null}
         />
       </section>
     </main>

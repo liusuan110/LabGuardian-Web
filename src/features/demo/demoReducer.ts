@@ -1,5 +1,5 @@
 import type { AgentAction, AgentStatusResponse, ChatMessage } from "../../types/agent";
-import type { PipelineResult, RailAssignments, VersionInfo } from "../../types/pipeline";
+import type { PipelineResult, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
 
@@ -18,7 +18,7 @@ export type DemoState = {
   imgsz: number;
   rails: RailAssignments;
   activeMode: CanvasMode;
-  pipelineResult: PipelineResult | null;
+  pipelineResult: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
@@ -32,7 +32,7 @@ export type DemoAction =
   | { type: "set-rail"; key: keyof RailAssignments; value: string }
   | { type: "set-mode"; mode: CanvasMode }
   | { type: "run-start" }
-  | { type: "run-success"; result: PipelineResult }
+  | { type: "run-success"; result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult }
   | { type: "run-error"; error: string }
   | { type: "agent-start"; prompt: string }
   | { type: "agent-success"; result: AgentStatusResponse }
