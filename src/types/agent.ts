@@ -1,10 +1,20 @@
 export type AgentJobState = "pending" | "running" | "completed" | "failed";
 
+export type AgentChatHistoryItem = {
+  role: string;
+  content: string;
+};
+
 export type AgentAskRequest = {
+  job_id?: string;
   station_id: string;
   query: string;
+  user_message?: string;
   mode: "diagnose" | "rag" | "diagnostic_agent" | string;
   top_k: number;
+  chat_history?: AgentChatHistoryItem[];
+  diagnosis_context?: Record<string, unknown>;
+  locale?: string;
 };
 
 export type AgentAcceptedResponse = {
@@ -37,11 +47,13 @@ export type AgentJobResult = {
   station_id: string;
   mode: string;
   answer: string;
+  follow_up_suggestions?: string[];
   citations: AgentCitation[];
   evidence: AgentEvidence[];
   actions: AgentAction[];
   used_retrieval: boolean;
   created_at: number;
+  debug?: Record<string, unknown> | null;
 };
 
 export type AgentStatusResponse = {
@@ -56,5 +68,6 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   createdAt: number;
+  status?: "sending" | "sent" | "error";
   actions?: AgentAction[];
 };

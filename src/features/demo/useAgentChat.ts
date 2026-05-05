@@ -1,84 +1,58 @@
 import { askAgent, waitForAgentResult } from "../../api/agent";
 import type { ChatMessage } from "../../types/agent";
 import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
-import { formatDuration, getMappedComponents, getNetCount } from "../../utils/pipeline";
 import type { DemoAction, DemoState } from "./demoReducer";
 
-function summarizePipeline(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null) {
-  if (!result) {
-    return "当前还没有 pipeline 结果。";
+function extractJobId(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): string {
+  if (!result) return "";
+  if ("job_id" in result && result.job_id) {
+    return String(result.job_id);
   }
+  return "";
+}
 
-  const isCircuitAnalysis = "components" in result;
-  
+function buildDiagnosisContext(
+  result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null,
+) {
+  if (!result) return {};
+
+  const isCircuitAnalysis = "components" in result && !("similarity" in result);
+
   if (isCircuitAnalysis) {
     const circuitResult = result as CircuitAnalysisResult;
-    const components = circuitResult.components
-      .slice(0, 8)
-      .map((component) => {
-        const pins = component.pins
-          .map((pin) => `${pin.pin_name}=${pin.hole_id}(${pin.electrical_node_id ?? "-"})`)
-          .join(", ");
-        return `${component.component_id} ${component.component_type}: ${pins}`;
-      })
-      .join("\n");
-
-    return [
-      `job_id=${circuitResult.job_id}`,
-      `component_count=${circuitResult.component_count}`,
-      `net_count=${circuitResult.net_count}`,
-      `total_duration=${formatDuration(circuitResult.total_duration_ms)}`,
-      `circuit_description=${circuitResult.circuit_description}`,
-      `components:\n${components || "无"}`,
-    ].join("\n");
+    return {
+      job_id: circuitResult.job_id ?? "",
+      component_count: circuitResult.component_count ?? 0,
+      net_count: circuitResult.net_count ?? 0,
+      risk_level: "unknown",
+      components: circuitResult.components ?? [],
+      nets: circuitResult.nets ?? [],
+      circuit_description: circuitResult.circuit_description ?? "",
+    };
   }
 
   const pipelineResult = result as PipelineResult;
-  const mappedComponents = getMappedComponents(pipelineResult)
-    .slice(0, 8)
-    .map((component) => {
-      const pins = (component.pins ?? [])
-        .map((pin) => `${pin.pin_name ?? "pin"}=${pin.hole_id ?? "-"}(${pin.electrical_node_id ?? "-"})`)
-        .join(", ");
-      return `${component.component_id ?? "component"} ${component.component_type ?? "UNKNOWN"}: ${pins}`;
-    })
-    .join("\n");
-
-  return [
-    `job_id=${pipelineResult.job_id}`,
-    `risk_level=${pipelineResult.risk_level}`,
-    `component_count=${pipelineResult.component_count}`,
-    `net_count=${getNetCount(pipelineResult)}`,
-    `progress=${pipelineResult.progress}`,
-    `similarity=${pipelineResult.similarity}`,
-    `total_duration=${formatDuration(pipelineResult.total_duration_ms)}`,
-    `diagnostics=${(pipelineResult.diagnostics ?? []).slice(0, 8).join("；") || "无"}`,
-    `risk_reasons=${(pipelineResult.risk_reasons ?? []).slice(0, 6).join("；") || "无"}`,
-    `mapped_components:\n${mappedComponents || "无"}`,
-  ].join("\n");
+  return {
+    job_id: pipelineResult.job_id ?? "",
+    risk_level: pipelineResult.risk_level ?? "unknown",
+    component_count: pipelineResult.component_count ?? 0,
+    net_count: pipelineResult.net_count ?? 0,
+    progress: pipelineResult.progress ?? 0,
+    similarity: pipelineResult.similarity ?? 0,
+    diagnostics: pipelineResult.diagnostics ?? [],
+    risk_reasons: pipelineResult.risk_reasons ?? [],
+    runtime_metadata: pipelineResult.runtime_metadata ?? {},
+  };
 }
 
-function summarizeConversation(messages: ChatMessage[]) {
+function buildChatHistory(messages: ChatMessage[]) {
+  // 只取已完成的 user/assistant 对，过滤掉 sending/error 状态的助手消息
   return messages
-    .slice(-8)
-    .map((message) => `${message.role === "user" ? "用户" : "Agent"}：${message.content}`)
-    .join("\n");
-}
-
-function buildContextualQuery(prompt: string, result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null, messages: ChatMessage[]) {
-  return [
-    "你是 LabGuardian 演示诊断 Agent。请基于当前 pipeline 事实链回答，不要重新猜测图像事实。",
-    "回答要延续最近对话上下文。如果用户问的是追问，要明确承接上一轮。",
-    "",
-    "【当前 pipeline 摘要】",
-    summarizePipeline(result),
-    "",
-    "【最近对话】",
-    summarizeConversation(messages) || "无",
-    "",
-    "【用户本轮问题】",
-    prompt,
-  ].join("\n");
+    .filter((msg) => msg.status !== "sending" && msg.status !== "error")
+    .map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
 }
 
 export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoAction>) {
@@ -87,14 +61,29 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
     if (!trimmed || state.agentStatus === "running") return;
 
     const contextResult = resultOverride ?? state.pipelineResult;
+    const jobId = extractJobId(contextResult);
+
+    if (!jobId) {
+      dispatch({
+        type: "agent-error",
+        error: "当前没有有效的诊断任务 ID",
+      });
+      return;
+    }
+
     dispatch({ type: "agent-start", prompt: trimmed });
 
     try {
       const accepted = await askAgent({
+        job_id: jobId,
         station_id: state.stationId,
-        query: buildContextualQuery(trimmed, contextResult, state.chatMessages),
+        query: trimmed,
+        user_message: trimmed,
         mode: "diagnostic_agent",
         top_k: 5,
+        chat_history: buildChatHistory(state.chatMessages),
+        diagnosis_context: buildDiagnosisContext(contextResult),
+        locale: "zh-CN",
       });
       const agentResult = await waitForAgentResult(accepted.job_id);
       if (agentResult.status === "failed") {

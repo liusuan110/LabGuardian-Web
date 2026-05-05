@@ -22,7 +22,7 @@ export function usePipelineRun(
         rail_assignments: state.rails,
       });
       dispatch({ type: "run-success", result: pipeline });
-      await onPipelineComplete?.("请根据当前 pipeline 事实链给出演示用诊断解释和下一步建议。", pipeline);
+      await onPipelineComplete?.("请根据当前诊断结果给出演示用诊断解释和下一步建议。", pipeline);
     } catch (error) {
       dispatch({
         type: "run-error",
@@ -45,12 +45,12 @@ export function usePipelineRun(
         reference_circuit: null,
         rail_assignments: state.rails,
       });
-      
+
       console.log("电路分析完成:", result);
       console.log("元件列表:", result.components);
       console.log("网表信息:", result.nets);
       console.log("拓扑图:", result.topology_graph);
-      
+
       dispatch({ type: "run-success", result: result });
     } catch (error) {
       dispatch({
@@ -74,12 +74,12 @@ export function usePipelineRun(
         reference_circuit: null,
         rail_assignments: state.rails,
       });
-      
+
       console.log("端口可视化完成:", result);
       console.log("端口列表:", result.ports);
       console.log("网络信息:", result.nets);
       console.log("元件信息:", result.components);
-      
+
       dispatch({ type: "run-success", result: result });
     } catch (error) {
       dispatch({

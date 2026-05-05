@@ -96,9 +96,24 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "set-mode":
       return { ...state, activeMode: action.mode };
     case "run-start":
-      return { ...state, runState: "running", error: "", agentStatus: "idle", agentError: "" };
+      return {
+        ...state,
+        runState: "running",
+        error: "",
+        agentStatus: "idle",
+        agentError: "",
+        chatMessages: [],
+        agentResult: null,
+      };
     case "run-success":
-      return { ...state, runState: "success", pipelineResult: action.result };
+      return {
+        ...state,
+        runState: "success",
+        pipelineResult: action.result,
+        chatMessages: [],
+        agentResult: null,
+        agentError: "",
+      };
     case "run-error":
       return { ...state, runState: "error", error: action.error };
     case "agent-start":
@@ -115,40 +130,68 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
             content: action.prompt,
             createdAt: Date.now(),
           },
+          {
+            id: createClientId(),
+            role: "assistant",
+            content: "",
+            createdAt: Date.now(),
+            status: "sending",
+          },
         ],
       };
-    case "agent-success":
+    case "agent-success": {
+      const assistantContent = action.result.result?.answer ?? "";
+      // 先检查原始 messages 中是否有 sending 占位符，再更新，避免重复追加
+      const hasSending = state.chatMessages.some(
+        (m) => m.role === "assistant" && m.status === "sending"
+      );
+      const newMessages = state.chatMessages.map((msg) => {
+        if (msg.role === "assistant" && msg.status === "sending") {
+          return {
+            ...msg,
+            content: assistantContent,
+            status: "sent" as const,
+            actions: action.result.result?.actions,
+          };
+        }
+        return msg;
+      });
+      const finalMessages = hasSending
+        ? newMessages
+        : [
+            ...newMessages,
+            {
+              id: createClientId(),
+              role: "assistant" as const,
+              content: assistantContent,
+              createdAt: Date.now(),
+              status: "sent" as const,
+              actions: action.result.result?.actions,
+            },
+          ];
       return {
         ...state,
         agentStatus: "success",
         agentResult: action.result,
-        chatMessages: action.result.result?.answer
-          ? [
-              ...state.chatMessages,
-              {
-                id: createClientId(),
-                role: "assistant",
-                content: action.result.result.answer,
-                createdAt: Date.now(),
-                actions: action.result.result.actions,
-              },
-            ]
-          : state.chatMessages,
+        chatMessages: finalMessages,
       };
+    }
     case "agent-error":
       return {
         ...state,
         agentStatus: "error",
         agentError: action.error,
-        chatMessages: [
-          ...state.chatMessages,
-          {
-            id: createClientId(),
-            role: "assistant",
-            content: `Agent 暂时不可用：${action.error}`,
-            createdAt: Date.now(),
-          },
-        ],
+        chatMessages: state.chatMessages
+          .filter((msg) => !(msg.role === "assistant" && msg.status === "sending"))
+          .concat([
+            {
+              id: createClientId(),
+              role: "assistant",
+              content: "回答生成失败，请稍后重试。",
+              createdAt: Date.now(),
+              status: "error",
+            },
+          ]),
       };
     case "chat-assistant":
       return {
