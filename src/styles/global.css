@@ -134,6 +134,8 @@ h2 {
 .stage-panel,
 .raw-panel,
 .netlist-panel {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -622,6 +624,11 @@ h2 {
   margin-top: 16px;
 }
 
+.bottom-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .stage-panel,
 .raw-panel,
 .netlist-panel {
@@ -670,9 +677,13 @@ h2 {
 .raw-panel {
   display: grid;
   gap: 10px;
+  overflow: hidden;
 }
 
 .raw-panel details {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcfc;
@@ -686,10 +697,15 @@ h2 {
 }
 
 .raw-panel pre {
+  width: 100%;
+  max-width: 100%;
   max-height: 300px;
   margin: 0;
   padding: 12px;
   overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   border-top: 1px solid var(--line);
   font-size: 12px;
   line-height: 1.55;
