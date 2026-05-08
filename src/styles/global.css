@@ -2128,14 +2128,26 @@ h2 {
   background: #fbf8f0;
   border: 1px solid var(--line);
   border-radius: 10px;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .breadboard-svg {
-  width: 100%;
-  height: auto;
   display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+  aspect-ratio: 694 / 282;
   user-select: none;
+}
+
+.bb-strip {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.bb-strip.used:hover rect {
+  filter: brightness(1.05);
 }
 
 .bb-text {

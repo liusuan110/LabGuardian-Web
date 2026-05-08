@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult } from "../types/pipeline";
 import {
+  ALL_STRIPS,
   BREADBOARD_COLS,
   BOT_LETTERS,
   TOP_LETTERS,
@@ -9,6 +10,7 @@ import {
   holeKey,
   type BreadboardPinRef,
   type RailKind,
+  type StripKind,
 } from "../utils/breadboard";
 
 type Props = {
@@ -71,6 +73,43 @@ function matrixY(letter: string): number {
 const BOARD_WIDTH = PAD_X * 2 + (BREADBOARD_COLS - 1) * COL_STEP;
 const BOARD_HEIGHT = railY("bot_minus") + PAD_Y;
 
+const STRIP_PAD = 7;
+const STRIP_WIDTH = HOLE_R * 2 + 6;
+const STRIP_HEIGHT = HOLE_R * 2 + 6;
+
+type StripGeom = { x: number; y: number; w: number; h: number; cx: number; cy: number; rx: number };
+
+function stripGeometry(kind: StripKind): StripGeom {
+  if (kind.kind === "matrix") {
+    const letters = kind.half === "top" ? TOP_LETTERS : BOT_LETTERS;
+    const yTop = matrixY(letters[0]) - STRIP_PAD;
+    const yBot = matrixY(letters[letters.length - 1]) + STRIP_PAD;
+    const x = colX(kind.col) - STRIP_WIDTH / 2;
+    return {
+      x,
+      y: yTop,
+      w: STRIP_WIDTH,
+      h: yBot - yTop,
+      cx: colX(kind.col),
+      cy: (yTop + yBot) / 2,
+      rx: STRIP_WIDTH / 2,
+    };
+  }
+  // rail
+  const x = colX(1) - 12;
+  const w = (BREADBOARD_COLS - 1) * COL_STEP + 24;
+  const y = railY(kind.rail) - STRIP_HEIGHT / 2;
+  return {
+    x,
+    y,
+    w,
+    h: STRIP_HEIGHT,
+    cx: x + w / 2,
+    cy: railY(kind.rail),
+    rx: STRIP_HEIGHT / 2,
+  };
+}
+
 type Hover = {
   x: number;
   y: number;
@@ -121,6 +160,25 @@ export function BreadboardView({ result }: Props) {
     return null;
   }
 
+  /** strip 锚点 = 该 strip 内已用孔的平均位置；若无已用孔，回退到几何中心 */
+  function stripAnchor(stripId: string): { x: number; y: number } | null {
+    const usage = model.stripUsage.get(stripId);
+    if (usage && usage.holes.length > 0) {
+      const pts = usage.holes
+        .map((h) => holePos(h))
+        .filter((p): p is { x: number; y: number } => Boolean(p));
+      if (pts.length > 0) {
+        const sx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+        const sy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+        return { x: sx, y: sy };
+      }
+    }
+    const meta = ALL_STRIPS.find((s) => s.id === stripId);
+    if (!meta) return null;
+    const g = stripGeometry(meta.kind);
+    return { x: g.cx, y: g.cy };
+  }
+
   return (
     <section className="netlist-panel">
       <div className="panel-heading">
@@ -134,7 +192,9 @@ export function BreadboardView({ result }: Props) {
         <svg
           className="breadboard-svg"
           viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
+          width="100%"
           preserveAspectRatio="xMidYMid meet"
+          style={{ aspectRatio: `${BOARD_WIDTH} / ${BOARD_HEIGHT}` }}
         >
           {/* 板子背景 */}
           <rect
@@ -167,84 +227,65 @@ export function BreadboardView({ result }: Props) {
             );
           })()}
 
-          {/* 电源轨指示线 */}
-          {(["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).map((rail) => (
-            <line
-              key={`rail-line-${rail}`}
-              x1={PAD_X - 8}
-              x2={PAD_X + (BREADBOARD_COLS - 1) * COL_STEP + 8}
-              y1={railY(rail)}
-              y2={railY(rail)}
-              stroke={RAIL_TINT[rail]}
-              strokeOpacity={0.18}
-              strokeWidth={1.5}
-            />
-          ))}
-
-          {/* 列号 */}
-          {Array.from({ length: BREADBOARD_COLS }, (_, i) => i + 1).map((col) =>
-            col % 5 === 0 || col === 1 ? (
-              <text
-                key={`colnum-${col}`}
-                x={colX(col)}
-                y={PAD_Y - 6}
-                textAnchor="middle"
-                className="bb-text"
-              >
-                {col}
-              </text>
-            ) : null,
-          )}
-
-          {/* 行字母 */}
-          {[...TOP_LETTERS, ...BOT_LETTERS].map((l) => (
-            <text
-              key={`rowletter-${l}`}
-              x={PAD_X - 14}
-              y={matrixY(l) + 3}
-              textAnchor="middle"
-              className="bb-text"
-            >
-              {l}
-            </text>
-          ))}
-
-          {/* 电源轨标签 */}
-          {(["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).map((rail) => (
-            <text
-              key={`rail-label-${rail}`}
-              x={PAD_X - 14}
-              y={railY(rail) + 3}
-              textAnchor="middle"
-              className="bb-text rail"
-              fill={RAIL_TINT[rail]}
-            >
-              {RAIL_LABELS[rail]}
-            </text>
-          ))}
-
-          {/* 1. net 连线（同一 net 不同孔之间画连接路径，凸显电气连通） */}
-          {usedNetIds.map((netId) => {
-            const keys = model.netHoles.get(netId) ?? [];
-            if (keys.length < 2) return null;
-            const role = model.netRoles.get(netId) ?? "SIGNAL";
-            const color = getNetColor(netId, role);
-            const isDim = activeNet !== null && activeNet !== netId;
-            const points = keys
-              .map((k) => holePos(k))
-              .filter((p): p is { x: number; y: number } => Boolean(p));
-            if (points.length < 2) return null;
+          {/* 0.5: strip lanes (面包板天然电气连接) */}
+          {ALL_STRIPS.map(({ id, kind }) => {
+            const g = stripGeometry(kind);
+            const usage = model.stripUsage.get(id);
+            const railTint = kind.kind === "rail" ? RAIL_TINT[kind.rail] : null;
+            if (usage) {
+              const color = getNetColor(usage.netId, usage.role);
+              const isActive = activeNet === usage.netId;
+              const isDim = activeNet !== null && !isActive;
+              return (
+                <g
+                  key={`strip-${id}`}
+                  className="bb-strip used"
+                  style={{ opacity: isDim ? 0.18 : 1 }}
+                  onMouseEnter={(e) => {
+                    const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+                    const scale = rect.width / BOARD_WIDTH;
+                    setHover({
+                      x: g.cx * scale + 8,
+                      y: g.cy * scale - 8,
+                      netId: usage.netId,
+                      netRole: usage.role,
+                      pins: usage.pins,
+                    });
+                  }}
+                  onMouseLeave={() => setHover(null)}
+                  onClick={() => setActiveNet((cur) => (cur === usage.netId ? null : usage.netId))}
+                >
+                  <rect
+                    x={g.x}
+                    y={g.y}
+                    width={g.w}
+                    height={g.h}
+                    rx={g.rx}
+                    ry={g.rx}
+                    fill={color}
+                    fillOpacity={isActive ? 0.28 : 0.16}
+                    stroke={color}
+                    strokeOpacity={isActive ? 0.85 : 0.55}
+                    strokeWidth={1.2}
+                  />
+                </g>
+              );
+            }
+            // 空 strip：仅显示一条非常淡的导电带
             return (
-              <polyline
-                key={`netpath-${netId}`}
-                points={points.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill="none"
-                stroke={color}
-                strokeWidth={2.4}
-                strokeOpacity={isDim ? 0.08 : 0.55}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="0"
+              <rect
+                key={`strip-${id}`}
+                x={g.x}
+                y={g.y}
+                width={g.w}
+                height={g.h}
+                rx={g.rx}
+                ry={g.rx}
+                fill={railTint ?? "#a8a092"}
+                fillOpacity={railTint ? 0.07 : 0.06}
+                stroke={railTint ?? "#cbc3ad"}
+                strokeOpacity={0.25}
+                strokeWidth={0.7}
               />
             );
           })}
@@ -282,6 +323,32 @@ export function BreadboardView({ result }: Props) {
               );
             }),
           )}
+
+          {/* 2.5: 跨 strip 跳线（同 net 涉及多个 strip 时连接 strip 锚点） */}
+          {usedNetIds.map((netId) => {
+            const stripIds = model.netStrips.get(netId) ?? [];
+            if (stripIds.length < 2) return null;
+            const role = model.netRoles.get(netId) ?? "SIGNAL";
+            const color = getNetColor(netId, role);
+            const isDim = activeNet !== null && activeNet !== netId;
+            const isActive = activeNet === netId;
+            const points = stripIds
+              .map((sid) => stripAnchor(sid))
+              .filter((p): p is { x: number; y: number } => Boolean(p));
+            if (points.length < 2) return null;
+            return (
+              <polyline
+                key={`jumper-${netId}`}
+                points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+                fill="none"
+                stroke={color}
+                strokeWidth={isActive ? 3 : 2.4}
+                strokeOpacity={isDim ? 0.06 : isActive ? 0.85 : 0.6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            );
+          })}
 
           {/* 3. 已用孔（高亮 + 脉冲） */}
           {Array.from(model.holes.entries()).map(([k, pins]) => {
@@ -330,6 +397,44 @@ export function BreadboardView({ result }: Props) {
               </g>
             );
           })}
+
+          {/* 4. 标签层 (顶层): 列号 / 行字母 / 电源轨标签 */}
+          {Array.from({ length: BREADBOARD_COLS }, (_, i) => i + 1).map((col) =>
+            col % 5 === 0 || col === 1 ? (
+              <text
+                key={`colnum-${col}`}
+                x={colX(col)}
+                y={PAD_Y - 6}
+                textAnchor="middle"
+                className="bb-text"
+              >
+                {col}
+              </text>
+            ) : null,
+          )}
+          {[...TOP_LETTERS, ...BOT_LETTERS].map((l) => (
+            <text
+              key={`rowletter-${l}`}
+              x={PAD_X - 14}
+              y={matrixY(l) + 3}
+              textAnchor="middle"
+              className="bb-text"
+            >
+              {l}
+            </text>
+          ))}
+          {(["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).map((rail) => (
+            <text
+              key={`rail-label-${rail}`}
+              x={PAD_X - 14}
+              y={railY(rail) + 3}
+              textAnchor="middle"
+              className="bb-text rail"
+              fill={RAIL_TINT[rail]}
+            >
+              {RAIL_LABELS[rail]}
+            </text>
+          ))}
         </svg>
 
         {hover ? (
