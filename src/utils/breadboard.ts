@@ -5,15 +5,23 @@ import type {
 } from "../types/pipeline";
 import { getStageData } from "./pipeline";
 
-/** 标准面包板：30 列，上半区 A-E，下半区 F-J，加 4 根电源轨 */
-export const BREADBOARD_COLS = 30;
+/** 标准全长面包板：60 列，上半区 A-E，下半区 F-J，加 4 根电源轨。
+ *  电源轨在中央 (col 30↔31) 物理断开，左右各为独立通路。 */
+export const BREADBOARD_COLS = 60;
+/** 中央分隔位置：col <= HALF_BOUNDARY 属左半，col > HALF_BOUNDARY 属右半 */
+export const HALF_BOUNDARY = 30;
 export const TOP_LETTERS = ["A", "B", "C", "D", "E"] as const;
 export const BOT_LETTERS = ["F", "G", "H", "I", "J"] as const;
 export type RailKind = "top_plus" | "top_minus" | "bot_plus" | "bot_minus";
+export type RailHalf = "L" | "R";
 
 export type HoleAddr =
   | { kind: "matrix"; row: number; letter: string }
   | { kind: "rail"; rail: RailKind; col: number };
+
+export function railHalfForCol(col: number): RailHalf {
+  return col <= HALF_BOUNDARY ? "L" : "R";
+}
 
 export type BreadboardPinRef = {
   componentId: string;
@@ -25,7 +33,7 @@ export type BreadboardPinRef = {
 
 export type StripKind =
   | { kind: "matrix"; half: "top" | "bot"; col: number }
-  | { kind: "rail"; rail: RailKind };
+  | { kind: "rail"; rail: RailKind; half: RailHalf };
 
 export type StripUsage = {
   netId: string;
@@ -49,20 +57,29 @@ export type BreadboardModel = {
   stripUsage: Map<string, StripUsage>;
   /** netId -> 该 net 占用到的 stripId 列表（去重） */
   netStrips: Map<string, string[]>;
+  /** componentId -> 该元件落入的 holeKey 集合（用于绘制元件锚点） */
+  componentHoles: Map<string, Set<string>>;
+  /** componentId -> 元件类型（用于标签显示） */
+  componentTypes: Map<string, string>;
 };
 
-/** 把孔地址映射到面包板真实导电带 ID。每个孔属于唯一一个 strip。 */
+/** 把孔地址映射到面包板真实导电带 ID。每个孔属于唯一一个 strip。
+ *  电源轨按物理事实在 col 30↔31 拆成左右两段。 */
 export function stripIdFor(addr: HoleAddr): string {
-  if (addr.kind === "rail") return `strip:rail:${addr.rail}`;
+  if (addr.kind === "rail") {
+    return `strip:rail:${addr.rail}:${railHalfForCol(addr.col)}`;
+  }
   const half = TOP_LETTERS.includes(addr.letter as (typeof TOP_LETTERS)[number]) ? "top" : "bot";
   return `strip:matrix:${half}:c${addr.row}`;
 }
 
-/** 静态枚举所有 64 条 strip，便于渲染层遍历。 */
+/** 静态枚举所有 strip：4 轨 × 2 半 + 60 列 × 2 半 = 8 + 120 = 128 条。 */
 export const ALL_STRIPS: Array<{ id: string; kind: StripKind }> = (() => {
   const out: Array<{ id: string; kind: StripKind }> = [];
   (["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).forEach((rail) => {
-    out.push({ id: `strip:rail:${rail}`, kind: { kind: "rail", rail } });
+    (["L", "R"] as RailHalf[]).forEach((half) => {
+      out.push({ id: `strip:rail:${rail}:${half}`, kind: { kind: "rail", rail, half } });
+    });
   });
   for (let c = 1; c <= BREADBOARD_COLS; c++) {
     out.push({ id: `strip:matrix:top:c${c}`, kind: { kind: "matrix", half: "top", col: c } });
@@ -84,7 +101,7 @@ export function parseHoleId(raw: string | undefined | null): HoleAddr | null {
   const s = String(raw).trim().toUpperCase();
   if (!s) return null;
 
-  // 矩阵孔：字母 + 数字，例如 A12, E5, j30
+  // 矩阵孔：字母 + 数字，例如 A12, E5, j30, A55
   const m = s.match(/^([A-J])\s*(\d{1,2})$/);
   if (m) {
     const letter = m[1];
@@ -129,6 +146,16 @@ export function parseHoleId(raw: string | undefined | null): HoleAddr | null {
     return { kind: "rail", rail: map[rail3[1]], col: parseInt(rail3[2], 10) };
   }
 
+  // 字母_列 / 字母-列 / 字母@列 兜底（A_25 / B-12）
+  const m2 = s.match(/^([A-J])[_@\- ](\d{1,2})$/);
+  if (m2) {
+    const letter = m2[1];
+    const row = parseInt(m2[2], 10);
+    if (row >= 1 && row <= BREADBOARD_COLS && /[A-J]/.test(letter)) {
+      return { kind: "matrix", row, letter };
+    }
+  }
+
   return null;
 }
 
@@ -169,6 +196,14 @@ function pushPin(model: BreadboardModel, addr: HoleAddr, ref: BreadboardPinRef) 
   const sList = model.netStrips.get(ref.netId) ?? [];
   if (!sList.includes(sid)) sList.push(sid);
   model.netStrips.set(ref.netId, sList);
+
+  // 元件占位
+  const compSet = model.componentHoles.get(ref.componentId) ?? new Set<string>();
+  compSet.add(key);
+  model.componentHoles.set(ref.componentId, compSet);
+  if (!model.componentTypes.has(ref.componentId)) {
+    model.componentTypes.set(ref.componentId, ref.componentType);
+  }
 }
 
 export function buildBreadboardModel(
@@ -182,6 +217,8 @@ export function buildBreadboardModel(
     netComponents: new Map(),
     stripUsage: new Map(),
     netStrips: new Map(),
+    componentHoles: new Map(),
+    componentTypes: new Map(),
   };
   if (!result) return model;
 
