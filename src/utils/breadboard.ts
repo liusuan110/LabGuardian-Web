@@ -29,6 +29,9 @@ export type BreadboardPinRef = {
   pinName: string;
   netId: string;
   holeId: string;
+  isAmbiguous?: boolean;
+  ambiguityReasons?: string[];
+  candidateHoleIds?: string[];
 };
 
 export type StripKind =
@@ -280,6 +283,9 @@ export function buildBreadboardModel(
         pinName: pin.pin_name ?? `pin${pin.pin_id}`,
         netId: pin.electrical_node_id ?? "UNKNOWN",
         holeId: pin.hole_id ?? "",
+        isAmbiguous: pin.is_ambiguous,
+        ambiguityReasons: pin.ambiguity_reasons,
+        candidateHoleIds: pin.candidate_hole_ids,
       });
     });
   });
