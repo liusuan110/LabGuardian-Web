@@ -2135,9 +2135,8 @@ h2 {
 .breadboard-svg {
   display: block;
   width: 100%;
-  min-width: 720px;
+  min-width: 980px;
   height: auto;
-  aspect-ratio: 694 / 282;
   user-select: none;
 }
 
@@ -2148,6 +2147,18 @@ h2 {
 
 .bb-strip.used:hover rect {
   filter: brightness(1.05);
+}
+
+.bb-component-label {
+  pointer-events: none;
+}
+
+.bb-text.comp {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #fff;
+  font-family: "JetBrains Mono", monospace;
+  pointer-events: none;
 }
 
 .bb-text {

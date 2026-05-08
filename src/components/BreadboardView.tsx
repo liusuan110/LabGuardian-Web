@@ -4,6 +4,7 @@ import {
   ALL_STRIPS,
   BREADBOARD_COLS,
   BOT_LETTERS,
+  HALF_BOUNDARY,
   TOP_LETTERS,
   buildBreadboardModel,
   getNetColor,
@@ -19,13 +20,14 @@ type Props = {
 
 // SVG 几何参数
 const PAD_X = 28;
-const PAD_Y = 18;
-const COL_STEP = 22;       // 每列横向间距
-const ROW_STEP = 20;       // 每行纵向间距
+const PAD_Y = 22;
+const COL_STEP = 13;       // 60 列下每列横向间距
+const ROW_STEP = 18;       // 每行纵向间距
 const RAIL_GAP = 14;       // 轨与矩阵之间的空隙
-const CENTER_GAP = 18;     // 中央 E↔F 之间的凹槽
-const HOLE_R = 5;          // 孔半径
-const USED_GLOW = 11;      // 已用孔的外圈半径
+const CENTER_GAP = 22;     // 中央 E↔F 之间的凹槽
+const CENTER_X_GAP = 14;   // 中央左右半之间的横向断开 (col 30↔31)
+const HOLE_R = 4.4;        // 孔半径
+const USED_GLOW = 9;       // 已用孔的外圈半径
 
 const RAIL_LABELS: Record<RailKind, string> = {
   top_plus: "+",
@@ -42,7 +44,9 @@ const RAIL_TINT: Record<RailKind, string> = {
 };
 
 function colX(col: number) {
-  return PAD_X + (col - 1) * COL_STEP;
+  // 60 列板：col 31 起整体右移 CENTER_X_GAP 体现物理中央断开
+  const extra = col > HALF_BOUNDARY ? CENTER_X_GAP : 0;
+  return PAD_X + (col - 1) * COL_STEP + extra;
 }
 
 function railY(rail: RailKind): number {
@@ -70,7 +74,7 @@ function matrixY(letter: string): number {
   return matrixBotStart + botIdx * ROW_STEP;
 }
 
-const BOARD_WIDTH = PAD_X * 2 + (BREADBOARD_COLS - 1) * COL_STEP;
+const BOARD_WIDTH = PAD_X * 2 + (BREADBOARD_COLS - 1) * COL_STEP + CENTER_X_GAP;
 const BOARD_HEIGHT = railY("bot_minus") + PAD_Y;
 
 const STRIP_PAD = 7;
@@ -95,9 +99,12 @@ function stripGeometry(kind: StripKind): StripGeom {
       rx: STRIP_WIDTH / 2,
     };
   }
-  // rail
-  const x = colX(1) - 12;
-  const w = (BREADBOARD_COLS - 1) * COL_STEP + 24;
+  // rail half: L 段覆盖 col 1..HALF_BOUNDARY，R 段覆盖 col HALF_BOUNDARY+1..BREADBOARD_COLS
+  const startCol = kind.half === "L" ? 1 : HALF_BOUNDARY + 1;
+  const endCol = kind.half === "L" ? HALF_BOUNDARY : BREADBOARD_COLS;
+  const x = colX(startCol) - 8;
+  const xEnd = colX(endCol) + 8;
+  const w = xEnd - x;
   const y = railY(kind.rail) - STRIP_HEIGHT / 2;
   return {
     x,
@@ -160,24 +167,19 @@ export function BreadboardView({ result }: Props) {
     return null;
   }
 
-  /** strip 锚点 = 该 strip 内已用孔的平均位置；若无已用孔，回退到几何中心 */
-  function stripAnchor(stripId: string): { x: number; y: number } | null {
-    const usage = model.stripUsage.get(stripId);
-    if (usage && usage.holes.length > 0) {
-      const pts = usage.holes
-        .map((h) => holePos(h))
-        .filter((p): p is { x: number; y: number } => Boolean(p));
-      if (pts.length > 0) {
-        const sx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-        const sy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-        return { x: sx, y: sy };
-      }
-    }
-    const meta = ALL_STRIPS.find((s) => s.id === stripId);
-    if (!meta) return null;
-    const g = stripGeometry(meta.kind);
-    return { x: g.cx, y: g.cy };
+  /** 元件锚点 = 该元件全部已用孔位置的平均坐标 */
+  function componentAnchor(componentId: string): { x: number; y: number } | null {
+    const holes = model.componentHoles.get(componentId);
+    if (!holes || holes.size === 0) return null;
+    const pts = Array.from(holes)
+      .map((k) => holePos(k))
+      .filter((p): p is { x: number; y: number } => Boolean(p));
+    if (pts.length === 0) return null;
+    const sx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const sy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+    return { x: sx, y: sy };
   }
+
 
   return (
     <section className="netlist-panel">
@@ -209,7 +211,7 @@ export function BreadboardView({ result }: Props) {
             strokeWidth={1.5}
           />
 
-          {/* 中央凹槽 */}
+          {/* 中央水平凹槽 (E↔F 之间) */}
           {(() => {
             const topRailsBottom = PAD_Y + ROW_STEP;
             const matrixTopStart = topRailsBottom + RAIL_GAP;
@@ -218,11 +220,28 @@ export function BreadboardView({ result }: Props) {
               <rect
                 x={PAD_X - 12}
                 y={matrixTopEnd + ROW_STEP / 2}
-                width={(BREADBOARD_COLS - 1) * COL_STEP + 24}
+                width={BOARD_WIDTH - (PAD_X - 12) * 2}
                 height={CENTER_GAP - ROW_STEP}
                 fill="#e8e0cd"
                 stroke="#cbc3ad"
                 strokeWidth={0.8}
+              />
+            );
+          })()}
+
+          {/* 中央垂直分隔 (col 30 ↔ col 31)：物理上左右两半电源轨在此断开 */}
+          {(() => {
+            const xMid = colX(HALF_BOUNDARY) + COL_STEP / 2 + CENTER_X_GAP / 2;
+            return (
+              <rect
+                x={xMid - CENTER_X_GAP / 2}
+                y={PAD_Y - 8}
+                width={CENTER_X_GAP}
+                height={BOARD_HEIGHT - (PAD_Y - 8) * 2}
+                fill="#ece4cf"
+                stroke="#cbc3ad"
+                strokeWidth={0.8}
+                strokeDasharray="3 2"
               />
             );
           })()}
@@ -324,28 +343,32 @@ export function BreadboardView({ result }: Props) {
             }),
           )}
 
-          {/* 2.5: 跨 strip 跳线（同 net 涉及多个 strip 时连接 strip 锚点） */}
+          {/* 2.5: 元件之间的电气连接（虚线）。
+              每条 net 涉及 >= 2 个元件时，把元件锚点 (其孔位平均) 连成一条虚线，
+              凸显"电气连接发生在哪些元件之间"。 */}
           {usedNetIds.map((netId) => {
-            const stripIds = model.netStrips.get(netId) ?? [];
-            if (stripIds.length < 2) return null;
+            const compIds = Array.from(model.netComponents.get(netId) ?? []);
+            if (compIds.length < 2) return null;
             const role = model.netRoles.get(netId) ?? "SIGNAL";
             const color = getNetColor(netId, role);
             const isDim = activeNet !== null && activeNet !== netId;
             const isActive = activeNet === netId;
-            const points = stripIds
-              .map((sid) => stripAnchor(sid))
-              .filter((p): p is { x: number; y: number } => Boolean(p));
-            if (points.length < 2) return null;
+            const anchors = compIds
+              .map((cid) => componentAnchor(cid))
+              .filter((p): p is { x: number; y: number } => Boolean(p))
+              .sort((a, b) => a.x - b.x); // 按 x 排序避免无谓交叉
+            if (anchors.length < 2) return null;
             return (
               <polyline
-                key={`jumper-${netId}`}
-                points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+                key={`compedge-${netId}`}
+                points={anchors.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill="none"
                 stroke={color}
-                strokeWidth={isActive ? 3 : 2.4}
-                strokeOpacity={isDim ? 0.06 : isActive ? 0.85 : 0.6}
+                strokeWidth={isActive ? 2.8 : 2}
+                strokeOpacity={isDim ? 0.08 : isActive ? 0.95 : 0.7}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                strokeDasharray="6 4"
               />
             );
           })}
@@ -398,7 +421,7 @@ export function BreadboardView({ result }: Props) {
             );
           })}
 
-          {/* 4. 标签层 (顶层): 列号 / 行字母 / 电源轨标签 */}
+          {/* 4. 标签层 (顶层): 列号 / 行字母 / 电源轨标签 / 元件标签 */}
           {Array.from({ length: BREADBOARD_COLS }, (_, i) => i + 1).map((col) =>
             col % 5 === 0 || col === 1 ? (
               <text
@@ -412,20 +435,31 @@ export function BreadboardView({ result }: Props) {
               </text>
             ) : null,
           )}
-          {[...TOP_LETTERS, ...BOT_LETTERS].map((l) => (
+          {/* 行字母双侧 */}
+          {[...TOP_LETTERS, ...BOT_LETTERS].flatMap((l) => [
             <text
-              key={`rowletter-${l}`}
+              key={`rowletter-L-${l}`}
               x={PAD_X - 14}
               y={matrixY(l) + 3}
               textAnchor="middle"
               className="bb-text"
             >
               {l}
-            </text>
-          ))}
-          {(["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).map((rail) => (
+            </text>,
             <text
-              key={`rail-label-${rail}`}
+              key={`rowletter-R-${l}`}
+              x={BOARD_WIDTH - PAD_X + 14}
+              y={matrixY(l) + 3}
+              textAnchor="middle"
+              className="bb-text"
+            >
+              {l}
+            </text>,
+          ])}
+          {/* 电源轨标签：左右两端各一份 (× 4 轨 = 8 个) */}
+          {(["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).flatMap((rail) => [
+            <text
+              key={`rail-label-L-${rail}`}
               x={PAD_X - 14}
               y={railY(rail) + 3}
               textAnchor="middle"
@@ -433,8 +467,48 @@ export function BreadboardView({ result }: Props) {
               fill={RAIL_TINT[rail]}
             >
               {RAIL_LABELS[rail]}
-            </text>
-          ))}
+            </text>,
+            <text
+              key={`rail-label-R-${rail}`}
+              x={BOARD_WIDTH - PAD_X + 14}
+              y={railY(rail) + 3}
+              textAnchor="middle"
+              className="bb-text rail"
+              fill={RAIL_TINT[rail]}
+            >
+              {RAIL_LABELS[rail]}
+            </text>,
+          ])}
+          {/* 元件标签：在元件锚点上方显示 component_id (避开聚焦淡化时也能看到) */}
+          {Array.from(model.componentHoles.keys()).map((cid) => {
+            const a = componentAnchor(cid);
+            if (!a) return null;
+            const compType = model.componentTypes.get(cid) ?? "";
+            return (
+              <g key={`complabel-${cid}`} className="bb-component-label">
+                <rect
+                  x={a.x - 22}
+                  y={a.y - 28}
+                  width={44}
+                  height={14}
+                  rx={3}
+                  fill="#1f2937"
+                  fillOpacity={0.78}
+                />
+                <text
+                  x={a.x}
+                  y={a.y - 18}
+                  textAnchor="middle"
+                  className="bb-text comp"
+                >
+                  {cid}
+                </text>
+                {compType ? (
+                  <title>{`${cid} · ${compType}`}</title>
+                ) : null}
+              </g>
+            );
+          })}
         </svg>
 
         {hover ? (
