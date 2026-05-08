@@ -2120,6 +2120,187 @@ h2 {
   }
 }
 
+/* ===== Breadboard visualization ===== */
+.breadboard-wrap {
+  position: relative;
+  width: 100%;
+  padding: 12px;
+  background: #fbf8f0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.breadboard-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+}
+
+.bb-text {
+  font-size: 8px;
+  fill: #6b7280;
+  font-family: "JetBrains Mono", monospace;
+  pointer-events: none;
+}
+
+.bb-text.rail {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bb-used {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.bb-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: bb-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes bb-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.18;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.05;
+  }
+}
+
+.bb-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(17, 24, 39, 0.94);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  z-index: 10;
+  min-width: 160px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  transform: translate(-50%, -100%);
+}
+
+.bb-tooltip-net {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.bb-tooltip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.bb-tooltip ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.bb-tooltip li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+}
+
+.bb-tooltip-comp {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.bb-tooltip-pin {
+  color: #fcd34d;
+}
+
+.bb-tooltip-hole {
+  color: #d1d5db;
+  text-align: right;
+}
+
+.bb-role-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bb-role-tag.vcc {
+  background: rgba(220, 38, 38, 0.15);
+  color: #b91c1c;
+}
+
+.bb-role-tag.gnd {
+  background: rgba(31, 41, 55, 0.15);
+  color: #1f2937;
+}
+
+.bb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.bb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  font-family: inherit;
+}
+
+.bb-legend-item:hover,
+.bb-legend-item.active {
+  background: #eef5ff;
+  border-color: #cfdcfb;
+  transform: translateY(-1px);
+}
+
+.bb-legend-item.active {
+  box-shadow: 0 0 0 1.5px var(--accent, #1976d2) inset;
+}
+
+.bb-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.bb-legend-name {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+}
+
+.bb-legend-meta {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
 /* ===== Stage timeline running state ===== */
 .stage-item.active {
   color: var(--accent, #1976d2);
