@@ -2153,6 +2153,51 @@ h2 {
   pointer-events: none;
 }
 
+.bb-ambig-ring {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: bb-ambig-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes bb-ambig-blink {
+  0%, 100% {
+    stroke-opacity: 0.85;
+  }
+  50% {
+    stroke-opacity: 0.3;
+  }
+}
+
+.bb-tooltip-ambig {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(245, 158, 11, 0.45);
+}
+
+.bb-tooltip-ambig-title {
+  color: #fbbf24;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.bb-tooltip-ambig-row {
+  display: grid;
+  gap: 2px;
+}
+
+.bb-tooltip-ambig-cands {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  color: #fde68a;
+}
+
+.bb-tooltip-ambig-reasons {
+  font-size: 10px;
+  color: #fcd34d;
+  opacity: 0.85;
+}
+
 .bb-text.comp {
   font-size: 9px;
   font-weight: 700;

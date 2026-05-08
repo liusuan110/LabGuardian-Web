@@ -9,6 +9,7 @@ import {
   buildBreadboardModel,
   getNetColor,
   holeKey,
+  parseHoleId,
   type BreadboardPinRef,
   type RailKind,
   type StripKind,
@@ -373,6 +374,49 @@ export function BreadboardView({ result }: Props) {
             );
           })}
 
+          {/* 3.0 ambiguous 候选孔位（虚线小圈，提示这根脚也可能落到这里） */}
+          {Array.from(model.holes.entries()).flatMap(([selectedKey, pins]) => {
+            const pos = holePos(selectedKey);
+            if (!pos) return [];
+            const ambig = pins.find((p) => p.isAmbiguous && p.candidateHoleIds && p.candidateHoleIds.length > 1);
+            if (!ambig || !ambig.candidateHoleIds) return [];
+            const role = model.netRoles.get(ambig.netId) ?? "SIGNAL";
+            const color = getNetColor(ambig.netId, role);
+            const isDim = activeNet !== null && activeNet !== ambig.netId;
+            return ambig.candidateHoleIds.slice(0, 4).flatMap((candStr, i) => {
+              const candAddr = parseHoleId(candStr);
+              if (!candAddr) return [];
+              const candKey = holeKey(candAddr);
+              if (candKey === selectedKey) return [];
+              const cp = holePos(candKey);
+              if (!cp) return [];
+              return [
+                <line
+                  key={`amb-line-${selectedKey}-${i}`}
+                  x1={pos.x}
+                  y1={pos.y}
+                  x2={cp.x}
+                  y2={cp.y}
+                  stroke={color}
+                  strokeOpacity={isDim ? 0.06 : 0.4}
+                  strokeWidth={1}
+                  strokeDasharray="2 3"
+                />,
+                <circle
+                  key={`amb-cand-${selectedKey}-${i}`}
+                  cx={cp.x}
+                  cy={cp.y}
+                  r={HOLE_R + 2.5}
+                  fill="none"
+                  stroke={color}
+                  strokeOpacity={isDim ? 0.1 : 0.55}
+                  strokeWidth={1.1}
+                  strokeDasharray="2 2"
+                />,
+              ];
+            });
+          })}
+
           {/* 3. 已用孔（高亮 + 脉冲） */}
           {Array.from(model.holes.entries()).map(([k, pins]) => {
             const pos = holePos(k);
@@ -382,10 +426,11 @@ export function BreadboardView({ result }: Props) {
             const color = getNetColor(netId, role);
             const isActive = activeNet === netId;
             const isDim = activeNet !== null && !isActive;
+            const isAmbiguous = pins.some((p) => p.isAmbiguous);
             return (
               <g
                 key={`used-${k}`}
-                className="bb-used"
+                className={`bb-used${isAmbiguous ? " ambiguous" : ""}`}
                 style={{ opacity: isDim ? 0.18 : 1 }}
                 onMouseEnter={(e) => {
                   const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
@@ -409,13 +454,25 @@ export function BreadboardView({ result }: Props) {
                   fillOpacity={isActive ? 0.32 : 0.18}
                   className="bb-pulse"
                 />
+                {isAmbiguous ? (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={HOLE_R + 4}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth={1.4}
+                    strokeDasharray="3 2"
+                    className="bb-ambig-ring"
+                  />
+                ) : null}
                 <circle
                   cx={pos.x}
                   cy={pos.y}
                   r={HOLE_R + 1}
                   fill={color}
-                  stroke="#fff"
-                  strokeWidth={1.4}
+                  stroke={isAmbiguous ? "#f59e0b" : "#fff"}
+                  strokeWidth={isAmbiguous ? 1.8 : 1.4}
                 />
               </g>
             );
@@ -530,6 +587,27 @@ export function BreadboardView({ result }: Props) {
                 </li>
               ))}
             </ul>
+            {hover.pins.some((p) => p.isAmbiguous) ? (
+              <div className="bb-tooltip-ambig">
+                <div className="bb-tooltip-ambig-title">⚠ 该孔位吸附存在歧义</div>
+                {hover.pins
+                  .filter((p) => p.isAmbiguous)
+                  .map((p, i) => (
+                    <div key={i} className="bb-tooltip-ambig-row">
+                      {p.candidateHoleIds && p.candidateHoleIds.length > 1 ? (
+                        <span className="bb-tooltip-ambig-cands">
+                          候选: {p.candidateHoleIds.slice(0, 4).join(" / ")}
+                        </span>
+                      ) : null}
+                      {p.ambiguityReasons && p.ambiguityReasons.length > 0 ? (
+                        <span className="bb-tooltip-ambig-reasons">
+                          原因: {p.ambiguityReasons.join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
