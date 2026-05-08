@@ -23,6 +23,17 @@ export type BreadboardPinRef = {
   holeId: string;
 };
 
+export type StripKind =
+  | { kind: "matrix"; half: "top" | "bot"; col: number }
+  | { kind: "rail"; rail: RailKind };
+
+export type StripUsage = {
+  netId: string;
+  role: string;
+  pins: BreadboardPinRef[];
+  holes: string[];
+};
+
 export type BreadboardModel = {
   /** 关键：holeKey -> 端口列表 */
   holes: Map<string, BreadboardPinRef[]>;
@@ -34,7 +45,33 @@ export type BreadboardModel = {
   netRoles: Map<string, string>;
   /** netId -> 涉及的元件 id 集合 */
   netComponents: Map<string, Set<string>>;
+  /** stripId -> 占用信息（仅有元件落入的 strip 才出现）*/
+  stripUsage: Map<string, StripUsage>;
+  /** netId -> 该 net 占用到的 stripId 列表（去重） */
+  netStrips: Map<string, string[]>;
 };
+
+/** 把孔地址映射到面包板真实导电带 ID。每个孔属于唯一一个 strip。 */
+export function stripIdFor(addr: HoleAddr): string {
+  if (addr.kind === "rail") return `strip:rail:${addr.rail}`;
+  const half = TOP_LETTERS.includes(addr.letter as (typeof TOP_LETTERS)[number]) ? "top" : "bot";
+  return `strip:matrix:${half}:c${addr.row}`;
+}
+
+/** 静态枚举所有 64 条 strip，便于渲染层遍历。 */
+export const ALL_STRIPS: Array<{ id: string; kind: StripKind }> = (() => {
+  const out: Array<{ id: string; kind: StripKind }> = [];
+  (["top_plus", "top_minus", "bot_plus", "bot_minus"] as RailKind[]).forEach((rail) => {
+    out.push({ id: `strip:rail:${rail}`, kind: { kind: "rail", rail } });
+  });
+  for (let c = 1; c <= BREADBOARD_COLS; c++) {
+    out.push({ id: `strip:matrix:top:c${c}`, kind: { kind: "matrix", half: "top", col: c } });
+  }
+  for (let c = 1; c <= BREADBOARD_COLS; c++) {
+    out.push({ id: `strip:matrix:bot:c${c}`, kind: { kind: "matrix", half: "bot", col: c } });
+  }
+  return out;
+})();
 
 export function holeKey(addr: HoleAddr): string {
   if (addr.kind === "matrix") return `M:${addr.letter}${addr.row}`;
@@ -118,6 +155,20 @@ function pushPin(model: BreadboardModel, addr: HoleAddr, ref: BreadboardPinRef) 
 
   if (!model.netLabels.has(ref.netId)) model.netLabels.set(ref.netId, ref.netId);
   if (!model.netRoles.has(ref.netId)) model.netRoles.set(ref.netId, inferRole(ref.netId));
+
+  // strip 聚合
+  const sid = stripIdFor(addr);
+  const usage =
+    model.stripUsage.get(sid) ??
+    ({ netId: ref.netId, role: model.netRoles.get(ref.netId) ?? "SIGNAL", pins: [], holes: [] } as StripUsage);
+  usage.pins.push(ref);
+  if (!usage.holes.includes(key)) usage.holes.push(key);
+  // 若不同 net 落到同一 strip（理论上是物理短路），保留首个 net 但记录冲突由调用方处理
+  model.stripUsage.set(sid, usage);
+
+  const sList = model.netStrips.get(ref.netId) ?? [];
+  if (!sList.includes(sid)) sList.push(sid);
+  model.netStrips.set(ref.netId, sList);
 }
 
 export function buildBreadboardModel(
@@ -129,6 +180,8 @@ export function buildBreadboardModel(
     netLabels: new Map(),
     netRoles: new Map(),
     netComponents: new Map(),
+    stripUsage: new Map(),
+    netStrips: new Map(),
   };
   if (!result) return model;
 
