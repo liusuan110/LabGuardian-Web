@@ -1,7 +1,12 @@
-import type { AgentAction, AgentStatusResponse, ChatMessage } from "../../types/agent";
-import type { PipelineResult, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
+import type { AgentAction, AgentProgressPhase, AgentStatusResponse, ChatMessage } from "../../types/agent";
+import type { PipelineResult, PipelineStageName, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
+
+export type PipelineProgress = {
+  activeStage: PipelineStageName | null;
+  completedStages: PipelineStageName[];
+};
 
 export type DemoState = {
   stationId: string;
@@ -23,6 +28,7 @@ export type DemoState = {
   agentResult: AgentStatusResponse | null;
   agentError: string;
   chatMessages: ChatMessage[];
+  pipelineProgress: PipelineProgress;
 };
 
 export type DemoAction =
@@ -34,10 +40,14 @@ export type DemoAction =
   | { type: "run-start" }
   | { type: "run-success"; result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult }
   | { type: "run-error"; error: string }
-  | { type: "agent-start"; prompt: string }
+  | { type: "agent-start"; prompt: string; placeholderId: string }
+  | { type: "agent-progress"; phase: AgentProgressPhase }
   | { type: "agent-success"; result: AgentStatusResponse }
+  | { type: "chat-stream-tick"; messageId: string; chars: number }
+  | { type: "chat-stream-done"; messageId: string }
   | { type: "agent-error"; error: string }
-  | { type: "chat-assistant"; content: string; actions?: AgentAction[] };
+  | { type: "chat-assistant"; content: string; actions?: AgentAction[] }
+  | { type: "pipeline-progress-tick"; activeStage: PipelineStageName | null; completedStages: PipelineStageName[] };
 
 export const initialDemoState: DemoState = {
   stationId: "LG-DEMO-01",
@@ -64,6 +74,13 @@ export const initialDemoState: DemoState = {
   agentResult: null,
   agentError: "",
   chatMessages: [],
+  pipelineProgress: { activeStage: null, completedStages: [] },
+};
+
+const PROGRESS_PHASE_TEXT: Record<AgentProgressPhase, string> = {
+  retrieving: "📚 正在检索知识库...",
+  reasoning: "🧠 正在结合诊断证据推理...",
+  composing: "✍️ 正在生成回答...",
 };
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
@@ -88,6 +105,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentError: "",
         agentStatus: "idle",
         chatMessages: [],
+        pipelineProgress: { activeStage: null, completedStages: [] },
       };
     case "set-option":
       return { ...state, [action.key]: action.value };
@@ -104,6 +122,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentError: "",
         chatMessages: [],
         agentResult: null,
+        pipelineProgress: { activeStage: null, completedStages: [] },
       };
     case "run-success":
       return {
@@ -113,6 +132,18 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: [],
         agentResult: null,
         agentError: "",
+        pipelineProgress: {
+          activeStage: null,
+          completedStages: ["detect", "pin_detect", "mapping", "topology", "validate"],
+        },
+      };
+    case "pipeline-progress-tick":
+      return {
+        ...state,
+        pipelineProgress: {
+          activeStage: action.activeStage,
+          completedStages: action.completedStages,
+        },
       };
     case "run-error":
       return { ...state, runState: "error", error: action.error };
@@ -131,42 +162,63 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
             createdAt: Date.now(),
           },
           {
-            id: createClientId(),
+            id: action.placeholderId,
             role: "assistant",
-            content: "",
+            content: PROGRESS_PHASE_TEXT.retrieving,
             createdAt: Date.now(),
             status: "sending",
+            phase: "retrieving",
           },
         ],
       };
+    case "agent-progress":
+      return {
+        ...state,
+        chatMessages: state.chatMessages.map((msg) =>
+          msg.role === "assistant" && (msg.status === "sending" || msg.status === "streaming")
+            ? { ...msg, content: PROGRESS_PHASE_TEXT[action.phase], phase: action.phase, status: "sending" as const }
+            : msg,
+        ),
+      };
     case "agent-success": {
-      const assistantContent = action.result.result?.answer ?? "";
-      // 先检查原始 messages 中是否有 sending 占位符，再更新，避免重复追加
+      const fullAnswer = action.result.result?.answer ?? "";
+      const result = action.result.result;
       const hasSending = state.chatMessages.some(
-        (m) => m.role === "assistant" && m.status === "sending"
+        (m) => m.role === "assistant" && (m.status === "sending" || m.status === "streaming"),
       );
-      const newMessages = state.chatMessages.map((msg) => {
-        if (msg.role === "assistant" && msg.status === "sending") {
+      const updated = state.chatMessages.map((msg) => {
+        if (msg.role === "assistant" && (msg.status === "sending" || msg.status === "streaming")) {
           return {
             ...msg,
-            content: assistantContent,
-            status: "sent" as const,
-            actions: action.result.result?.actions,
+            content: "",
+            streamedContent: "",
+            pendingAnswer: fullAnswer,
+            status: "streaming" as const,
+            phase: undefined,
+            actions: result?.actions,
+            citations: result?.citations,
+            evidence: result?.evidence,
+            followUps: result?.follow_up_suggestions,
           };
         }
         return msg;
       });
       const finalMessages = hasSending
-        ? newMessages
+        ? updated
         : [
-            ...newMessages,
+            ...updated,
             {
               id: createClientId(),
               role: "assistant" as const,
-              content: assistantContent,
+              content: "",
+              streamedContent: "",
+              pendingAnswer: fullAnswer,
               createdAt: Date.now(),
-              status: "sent" as const,
-              actions: action.result.result?.actions,
+              status: "streaming" as const,
+              actions: result?.actions,
+              citations: result?.citations,
+              evidence: result?.evidence,
+              followUps: result?.follow_up_suggestions,
             },
           ];
       return {
@@ -176,13 +228,41 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: finalMessages,
       };
     }
+    case "chat-stream-tick":
+      return {
+        ...state,
+        chatMessages: state.chatMessages.map((msg) => {
+          if (msg.id !== action.messageId || msg.status !== "streaming" || !msg.pendingAnswer) return msg;
+          const target = (msg.streamedContent?.length ?? 0) + action.chars;
+          const next = msg.pendingAnswer.slice(0, target);
+          return { ...msg, streamedContent: next, content: next };
+        }),
+      };
+    case "chat-stream-done":
+      return {
+        ...state,
+        chatMessages: state.chatMessages.map((msg) => {
+          if (msg.id !== action.messageId) return msg;
+          const full = msg.pendingAnswer ?? msg.content;
+          return {
+            ...msg,
+            content: full,
+            streamedContent: full,
+            status: "sent" as const,
+            pendingAnswer: undefined,
+          };
+        }),
+      };
     case "agent-error":
       return {
         ...state,
         agentStatus: "error",
         agentError: action.error,
         chatMessages: state.chatMessages
-          .filter((msg) => !(msg.role === "assistant" && msg.status === "sending"))
+          .filter(
+            (msg) =>
+              !(msg.role === "assistant" && (msg.status === "sending" || msg.status === "streaming")),
+          )
           .concat([
             {
               id: createClientId(),

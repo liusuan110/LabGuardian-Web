@@ -63,11 +63,19 @@ export type AgentStatusResponse = {
   error: string | null;
 };
 
+export type AgentProgressPhase = "retrieving" | "reasoning" | "composing";
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   createdAt: number;
-  status?: "sending" | "sent" | "error";
+  status?: "sending" | "streaming" | "sent" | "error";
+  phase?: AgentProgressPhase;
+  pendingAnswer?: string;
+  streamedContent?: string;
   actions?: AgentAction[];
+  citations?: AgentCitation[];
+  evidence?: AgentEvidence[];
+  followUps?: string[];
 };

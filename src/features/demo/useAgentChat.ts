@@ -1,6 +1,7 @@
 import { askAgent, waitForAgentResult } from "../../api/agent";
 import type { ChatMessage } from "../../types/agent";
 import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
+import { createClientId } from "../../utils/id";
 import type { DemoAction, DemoState } from "./demoReducer";
 
 function extractJobId(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): string {
@@ -46,14 +47,21 @@ function buildDiagnosisContext(
 }
 
 function buildChatHistory(messages: ChatMessage[]) {
-  // 只取已完成的 user/assistant 对，过滤掉 sending/error 状态的助手消息
   return messages
-    .filter((msg) => msg.status !== "sending" && msg.status !== "error")
+    .filter((msg) => msg.status !== "sending" && msg.status !== "streaming" && msg.status !== "error")
     .map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 }
+
+const PROGRESS_TIMINGS: Array<{ phase: "reasoning" | "composing"; at: number }> = [
+  { phase: "reasoning", at: 1600 },
+  { phase: "composing", at: 3000 },
+];
+
+const STREAM_INTERVAL_MS = 25;
+const STREAM_CHARS_PER_TICK = 2;
 
 export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoAction>) {
   async function send(prompt: string, resultOverride?: PipelineResult) {
@@ -71,7 +79,15 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
       return;
     }
 
-    dispatch({ type: "agent-start", prompt: trimmed });
+    const placeholderId = createClientId();
+    dispatch({ type: "agent-start", prompt: trimmed, placeholderId });
+
+    const progressTimers = PROGRESS_TIMINGS.map(({ phase, at }) =>
+      window.setTimeout(() => {
+        dispatch({ type: "agent-progress", phase });
+      }, at),
+    );
+    const clearProgressTimers = () => progressTimers.forEach((id) => window.clearTimeout(id));
 
     try {
       const accepted = await askAgent({
@@ -86,12 +102,36 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
         locale: "zh-CN",
       });
       const agentResult = await waitForAgentResult(accepted.job_id);
+      clearProgressTimers();
+
       if (agentResult.status === "failed") {
         dispatch({ type: "agent-error", error: agentResult.error || "Agent 诊断失败" });
-      } else {
-        dispatch({ type: "agent-success", result: agentResult });
+        return;
       }
+
+      dispatch({ type: "agent-success", result: agentResult });
+
+      const fullAnswer = agentResult.result?.answer ?? "";
+      if (!fullAnswer) {
+        dispatch({ type: "chat-stream-done", messageId: placeholderId });
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        let written = 0;
+        const interval = window.setInterval(() => {
+          written += STREAM_CHARS_PER_TICK;
+          if (written >= fullAnswer.length) {
+            window.clearInterval(interval);
+            dispatch({ type: "chat-stream-done", messageId: placeholderId });
+            resolve();
+          } else {
+            dispatch({ type: "chat-stream-tick", messageId: placeholderId, chars: STREAM_CHARS_PER_TICK });
+          }
+        }, STREAM_INTERVAL_MS);
+      });
     } catch (error) {
+      clearProgressTimers();
       dispatch({
         type: "agent-error",
         error: error instanceof Error ? error.message : "Agent 诊断失败",

@@ -1,8 +1,16 @@
 import { Play, SlidersHorizontal, UploadCloud } from "lucide-react";
 import type { ChangeEvent, DragEvent } from "react";
-import type { RailAssignments } from "../types/pipeline";
+import type { PipelineStageName, RailAssignments } from "../types/pipeline";
 import type { RunState } from "../types/ui";
 import { formatBytes } from "../utils/file";
+
+const STAGE_RUN_LABEL: Record<PipelineStageName, string> = {
+  detect: "正在做目标检测...",
+  pin_detect: "正在定位引脚...",
+  mapping: "正在映射孔位...",
+  topology: "正在构建网表...",
+  validate: "正在校验风险...",
+};
 
 type Props = {
   file: File | null;
@@ -11,6 +19,7 @@ type Props = {
   imgsz: number;
   rails: RailAssignments;
   runState: RunState;
+  activeStage?: PipelineStageName | null;
   onFileSelected: (file: File) => void;
   onOptionChange: (key: "conf" | "iou" | "imgsz", value: number) => void;
   onRailChange: (key: keyof RailAssignments, value: string) => void;
@@ -31,6 +40,7 @@ export function UploadPanel({
   imgsz,
   rails,
   runState,
+  activeStage,
   onFileSelected,
   onOptionChange,
   onRailChange,
@@ -122,7 +132,13 @@ export function UploadPanel({
 
       <button className="run-button" type="button" disabled={!file || isRunning} onClick={onRun}>
         <Play size={18} />
-        <span>{isRunning ? "Pipeline 运行中" : "运行完整诊断"}</span>
+        <span>
+          {isRunning
+            ? activeStage
+              ? STAGE_RUN_LABEL[activeStage]
+              : "Pipeline 运行中..."
+            : "运行完整诊断"}
+        </span>
       </button>
     </aside>
   );

@@ -53,6 +53,7 @@ export function DemoPage() {
           imgsz={state.imgsz}
           rails={state.rails}
           runState={state.runState}
+          activeStage={state.pipelineProgress.activeStage}
           onFileSelected={handleFileSelected}
           onOptionChange={(key, value) => dispatch({ type: "set-option", key, value })}
           onRailChange={(key, value) => dispatch({ type: "set-rail", key, value })}
@@ -86,7 +87,11 @@ export function DemoPage() {
       />
 
       <section className="bottom-grid">
-        <StageTimeline result={state.pipelineResult} />
+        <StageTimeline
+          result={state.pipelineResult}
+          progress={state.pipelineProgress}
+          runState={state.runState}
+        />
         <RawJsonPanel
           pipeline={state.pipelineResult}
           agent={state.agentResult}
