@@ -82,6 +82,7 @@ const BOARD_HEIGHT = railY("bot_minus") + PAD_Y;
 const STRIP_PAD = 7;
 const STRIP_WIDTH = HOLE_R * 2 + 6;
 const STRIP_HEIGHT = HOLE_R * 2 + 6;
+const ROUTE_LANE_OFFSETS = [-10, -6, -2, 2, 6, 10];
 
 type StripGeom = { x: number; y: number; w: number; h: number; cx: number; cy: number; rx: number };
 
@@ -138,6 +139,26 @@ type DragState = {
   cursorBoardY: number;
 };
 
+type Point = { x: number; y: number };
+
+type NetRoute = {
+  netId: string;
+  role: string;
+  color: string;
+  points: Point[];
+  busY: number;
+  d: string;
+  labelX: number;
+  labelY: number;
+};
+
+function buildRoutePath(points: Point[], busY: number) {
+  const xs = points.map((p) => p.x);
+  const minX = Math.min(...xs) - 10;
+  const maxX = Math.max(...xs) + 10;
+  const branches = points.map((p) => `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} V ${busY.toFixed(1)}`);
+  return [`M ${minX.toFixed(1)} ${busY.toFixed(1)} H ${maxX.toFixed(1)}`, ...branches].join(" ");
+}
 export function BreadboardView({ result }: Props) {
   // 用户拖拽手工修正：(componentId::pinName) -> 新 holeKey
   const [corrections, setCorrections] = useState<Map<string, string>>(new Map());
@@ -148,7 +169,9 @@ export function BreadboardView({ result }: Props) {
 
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
-  const [activeNet, setActiveNet] = useState<string | null>(null);
+  const [hoverNet, setHoverNet] = useState<string | null>(null);
+  const [selectedNet, setSelectedNet] = useState<string | null>(null);
+  const activeNet = hoverNet ?? selectedNet;
   const [drag, setDrag] = useState<DragState | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -313,6 +336,45 @@ export function BreadboardView({ result }: Props) {
     setCorrections(new Map());
   }
 
+  function netRoute(netId: string, routeIndex: number): NetRoute | null {
+    const points = (model.netHoles.get(netId) ?? [])
+      .map((k) => holePos(k))
+      .filter((p): p is Point => Boolean(p))
+      .filter((p, index, arr) => arr.findIndex((item) => item.x === p.x && item.y === p.y) === index)
+      .sort((a, b) => a.x - b.x || a.y - b.y);
+
+    if (points.length < 2) return null;
+
+    const role = model.netRoles.get(netId) ?? "SIGNAL";
+    const color = getNetColor(netId, role);
+    const centerY = (matrixY("E") + matrixY("F")) / 2;
+    const avgY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    const laneOffset = ROUTE_LANE_OFFSETS[routeIndex % ROUTE_LANE_OFFSETS.length];
+    const powerLaneOffset = role === "VCC" ? 7 : -7;
+    const busY =
+      role === "VCC"
+        ? avgY > centerY ? railY("bot_plus") + powerLaneOffset : railY("top_plus") + powerLaneOffset
+        : role === "GND"
+          ? avgY > centerY ? railY("bot_minus") + powerLaneOffset : railY("top_minus") + powerLaneOffset
+          : centerY + laneOffset;
+
+    const minX = Math.min(...points.map((p) => p.x));
+    return {
+      netId,
+      role,
+      color,
+      points,
+      busY,
+      d: buildRoutePath(points, busY),
+      labelX: Math.max(PAD_X + 18, minX - 14),
+      labelY: busY - 5,
+    };
+  }
+
+  const netRoutes = usedNetIds
+    .map((netId, index) => netRoute(netId, index))
+    .filter((route): route is NetRoute => Boolean(route));
+
   return (
     <section className="netlist-panel">
       <div className="panel-heading">
@@ -407,19 +469,23 @@ export function BreadboardView({ result }: Props) {
                   key={`strip-${id}`}
                   className="bb-strip used"
                   style={{ opacity: isDim ? 0.18 : 1 }}
-                  onMouseEnter={(e) => {
-                    const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-                    const scale = rect.width / BOARD_WIDTH;
-                    setHover({
-                      x: g.cx * scale + 8,
-                      y: g.cy * scale - 8,
+	                  onMouseEnter={(e) => {
+	                    const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+	                    const scale = rect.width / BOARD_WIDTH;
+	                    setHoverNet(usage.netId);
+	                    setHover({
+	                      x: g.cx * scale + 8,
+	                      y: g.cy * scale - 8,
                       netId: usage.netId,
                       netRole: usage.role,
                       pins: usage.pins,
                     });
                   }}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={() => setActiveNet((cur) => (cur === usage.netId ? null : usage.netId))}
+	                  onMouseLeave={() => {
+	                    setHover(null);
+	                    setHoverNet(null);
+	                  }}
+	                  onClick={() => setSelectedNet((cur) => (cur === usage.netId ? null : usage.netId))}
                 >
                   <rect
                     x={g.x}
@@ -490,33 +556,61 @@ export function BreadboardView({ result }: Props) {
             }),
           )}
 
-          {/* 2.5: 元件之间的电气连接（虚线）。
-              每条 net 涉及 >= 2 个元件时，把元件锚点 (其孔位平均) 连成一条虚线，
-              凸显"电气连接发生在哪些元件之间"。 */}
-          {usedNetIds.map((netId) => {
-            const compIds = Array.from(model.netComponents.get(netId) ?? []);
-            if (compIds.length < 2) return null;
-            const role = model.netRoles.get(netId) ?? "SIGNAL";
-            const color = getNetColor(netId, role);
-            const isDim = activeNet !== null && activeNet !== netId;
-            const isActive = activeNet === netId;
-            const anchors = compIds
-              .map((cid) => componentAnchor(cid))
-              .filter((p): p is { x: number; y: number } => Boolean(p))
-              .sort((a, b) => a.x - b.x); // 按 x 排序避免无谓交叉
-            if (anchors.length < 2) return null;
+          {/* 2.5: 电气等势网路线。主干线表示同一 net，支线落到真实孔位。 */}
+          {netRoutes.map((route) => {
+            const isDim = activeNet !== null && activeNet !== route.netId;
+            const isActive = activeNet === route.netId;
             return (
-              <polyline
-                key={`compedge-${netId}`}
-                points={anchors.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill="none"
-                stroke={color}
-                strokeWidth={isActive ? 2.8 : 2}
-                strokeOpacity={isDim ? 0.08 : isActive ? 0.95 : 0.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="6 4"
-              />
+              <g
+                key={`netroute-${route.netId}`}
+                className={`bb-net-route ${isActive ? "active" : ""}`}
+                style={{ opacity: isDim ? 0.12 : 1 }}
+                onMouseEnter={() => setHoverNet(route.netId)}
+                onMouseLeave={() => setHoverNet(null)}
+                onClick={() => setSelectedNet((cur) => (cur === route.netId ? null : route.netId))}
+              >
+                <path className="bb-net-route-hit" d={route.d} />
+                <path className="bb-net-route-halo" d={route.d} />
+                <path
+                  className="bb-net-route-line"
+                  d={route.d}
+                  stroke={route.color}
+                  strokeWidth={isActive ? 3.1 : 2.3}
+                  strokeOpacity={isActive ? 0.98 : 0.82}
+                />
+                {route.points.map((p, index) => (
+                  <circle
+                    key={`${route.netId}-${index}`}
+                    cx={p.x}
+                    cy={route.busY}
+                    r={isActive ? 3.1 : 2.4}
+                    fill="#fff"
+                    stroke={route.color}
+                    strokeWidth={1.4}
+                  />
+                ))}
+                <g className="bb-net-route-label">
+                  <rect
+                    x={route.labelX - 3}
+                    y={route.labelY - 9}
+                    width={Math.max(30, route.netId.length * 6.4 + 8)}
+                    height={13}
+                    rx={3}
+                    fill="#fff"
+                    stroke={route.color}
+                    strokeOpacity={0.75}
+                  />
+                  <text
+                    x={route.labelX + 1}
+                    y={route.labelY + 1}
+                    fill={route.color}
+                    className="bb-route-text"
+                  >
+                    {route.netId}
+                  </text>
+                </g>
+                <title>{`${route.netId} · ${route.role} · ${route.points.length} connected holes`}</title>
+              </g>
             );
           })}
 
@@ -584,18 +678,22 @@ export function BreadboardView({ result }: Props) {
                 key={`used-${k}`}
                 className={`bb-used${isAmbiguous ? " ambiguous" : ""}${isCorrected ? " corrected" : ""}`}
                 style={{ opacity: isDim ? 0.18 : 1 }}
-                onMouseEnter={(e) => {
-                  const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-                  const scale = rect.width / BOARD_WIDTH;
-                  setHover({
-                    x: pos.x * scale + 8,
-                    y: pos.y * scale - 8,
+	                onMouseEnter={(e) => {
+	                  const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+	                  const scale = rect.width / BOARD_WIDTH;
+	                  setHoverNet(netId);
+	                  setHover({
+	                    x: pos.x * scale + 8,
+	                    y: pos.y * scale - 8,
                     netId,
                     netRole: role,
                     pins,
                   });
                 }}
-                onMouseLeave={() => setHover(null)}
+                onMouseLeave={() => {
+                  setHover(null);
+                  setHoverNet(null);
+                }}
                 onMouseDown={(e) => {
                   // 仅左键 + 没有修饰键时进入拖拽模式
                   if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -604,7 +702,7 @@ export function BreadboardView({ result }: Props) {
                 onClick={() => {
                   // 拖拽结束的 click 已经被 mouseup 吞了；这里只处理纯点击
                   if (drag) return;
-                  setActiveNet((cur) => (cur === netId ? null : netId));
+                  setSelectedNet((cur) => (cur === netId ? null : netId));
                 }}
               >
                 <circle
@@ -863,13 +961,13 @@ export function BreadboardView({ result }: Props) {
           const isActive = activeNet === netId;
           return (
             <button
-              key={netId}
-              type="button"
-              className={`bb-legend-item ${isActive ? "active" : ""}`}
-              onClick={() => setActiveNet((cur) => (cur === netId ? null : netId))}
-              onMouseEnter={() => setActiveNet(netId)}
-              onMouseLeave={() => !isActive && setActiveNet(null)}
-            >
+	              key={netId}
+	              type="button"
+	              className={`bb-legend-item ${isActive ? "active" : ""}`}
+	              onClick={() => setSelectedNet((cur) => (cur === netId ? null : netId))}
+	              onMouseEnter={() => setHoverNet(netId)}
+	              onMouseLeave={() => setHoverNet(null)}
+	            >
               <span className="bb-legend-dot" style={{ background: color }} />
               <span className="bb-legend-name">{netId}</span>
               {role !== "SIGNAL" ? <span className={`bb-role-tag ${role.toLowerCase()}`}>{role}</span> : null}

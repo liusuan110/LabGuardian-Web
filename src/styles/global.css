@@ -2250,6 +2250,51 @@ h2 {
   transition: opacity 0.2s;
 }
 
+.bb-net-route {
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+
+.bb-net-route-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bb-net-route-halo,
+.bb-net-route-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.bb-net-route-halo {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 6;
+}
+
+.bb-net-route-line {
+  stroke-dasharray: 1 0;
+}
+
+.bb-net-route.active .bb-net-route-halo {
+  stroke-width: 7;
+}
+
+.bb-net-route-label {
+  pointer-events: none;
+}
+
+.bb-route-text {
+  font-size: 8.5px;
+  font-weight: 800;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0;
+}
+
 .bb-pulse {
   transform-origin: center;
   transform-box: fill-box;
