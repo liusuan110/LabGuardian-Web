@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult } from "../types/pipeline";
 import {
   ALL_STRIPS,
@@ -10,6 +10,7 @@ import {
   getNetColor,
   holeKey,
   parseHoleId,
+  pinKeyOf,
   type BreadboardPinRef,
   type RailKind,
   type StripKind,
@@ -126,10 +127,30 @@ type Hover = {
   pins: BreadboardPinRef[];
 } | null;
 
+type DragState = {
+  pinKey: string;        // componentId::pinName
+  componentId: string;
+  pinName: string;
+  origHoleKey: string;   // 起始孔 key (M:A12 / R:top_plus:5)
+  netId: string;
+  netRole: string;
+  cursorBoardX: number;  // 当前光标在 SVG viewBox 坐标系内的位置
+  cursorBoardY: number;
+};
+
 export function BreadboardView({ result }: Props) {
-  const model = useMemo(() => buildBreadboardModel(result), [result]);
+  // 用户拖拽手工修正：(componentId::pinName) -> 新 holeKey
+  const [corrections, setCorrections] = useState<Map<string, string>>(new Map());
+  // 结果变化时自动清空修正（不同诊断结果之间不沾染）
+  useEffect(() => {
+    setCorrections(new Map());
+  }, [result]);
+
+  const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
   const [activeNet, setActiveNet] = useState<string | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   const usedNetIds = Array.from(model.netHoles.entries())
     .sort(([a], [b]) => {
@@ -181,6 +202,116 @@ export function BreadboardView({ result }: Props) {
     return { x: sx, y: sy };
   }
 
+  /** 找离 (board x, y) 最近的孔 (matrix + rail，全部遍历)。返回 holeKey 或 null。 */
+  function nearestHoleKey(bx: number, by: number, maxDistPx: number): string | null {
+    let best: { key: string; d2: number } | null = null;
+    // matrix
+    const letters: readonly string[] = [...TOP_LETTERS, ...BOT_LETTERS];
+    for (const l of letters) {
+      const ly = matrixY(l);
+      for (let c = 1; c <= BREADBOARD_COLS; c++) {
+        const lx = colX(c);
+        const dx = lx - bx;
+        const dy = ly - by;
+        const d2 = dx * dx + dy * dy;
+        if (best === null || d2 < best.d2) {
+          best = { key: holeKey({ kind: "matrix", letter: l, row: c }), d2 };
+        }
+      }
+    }
+    // rails
+    const rails: RailKind[] = ["top_plus", "top_minus", "bot_plus", "bot_minus"];
+    for (const r of rails) {
+      const ry = railY(r);
+      for (let c = 1; c <= BREADBOARD_COLS; c++) {
+        const rx = colX(c);
+        const dx = rx - bx;
+        const dy = ry - by;
+        const d2 = dx * dx + dy * dy;
+        if (best === null || d2 < best.d2) {
+          best = { key: holeKey({ kind: "rail", rail: r, col: c }), d2 };
+        }
+      }
+    }
+    if (!best) return null;
+    return Math.sqrt(best.d2) <= maxDistPx ? best.key : null;
+  }
+
+  /** 把屏幕坐标 (clientX/Y) 转成 SVG viewBox 内的坐标 */
+  function clientToBoard(clientX: number, clientY: number): { x: number; y: number } | null {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    const scale = rect.width / BOARD_WIDTH;
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
+    };
+  }
+
+  /** 全局拖拽监听：drag 状态期间订阅 mousemove / mouseup */
+  useEffect(() => {
+    if (!drag) return;
+    const onMove = (e: MouseEvent) => {
+      const pt = clientToBoard(e.clientX, e.clientY);
+      if (!pt) return;
+      setDrag((cur) => (cur ? { ...cur, cursorBoardX: pt.x, cursorBoardY: pt.y } : cur));
+    };
+    const onUp = (e: MouseEvent) => {
+      const pt = clientToBoard(e.clientX, e.clientY);
+      setDrag((cur) => {
+        if (!cur) return cur;
+        if (pt) {
+          // 拖拽距离极小（< 0.4 pitch ≈ 5 px）当作普通点击
+          const moved = Math.hypot(pt.x - cur.cursorBoardX, pt.y - cur.cursorBoardY) > 0.5;
+          const fromCursor = pt;
+          const target = nearestHoleKey(fromCursor.x, fromCursor.y, COL_STEP * 1.2);
+          if (target && (target !== cur.origHoleKey || moved)) {
+            setCorrections((prev) => {
+              const next = new Map(prev);
+              if (target === cur.origHoleKey) {
+                // 拖回原位 → 撤销修正
+                next.delete(cur.pinKey);
+              } else {
+                next.set(cur.pinKey, target);
+              }
+              return next;
+            });
+          }
+        }
+        return null; // 结束拖拽
+      });
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag !== null]);
+
+  function startDrag(e: React.MouseEvent, pin: BreadboardPinRef, origKey: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pt = clientToBoard(e.clientX, e.clientY);
+    const orig = holePos(origKey);
+    setDrag({
+      pinKey: pinKeyOf(pin.componentId, pin.pinName),
+      componentId: pin.componentId,
+      pinName: pin.pinName,
+      origHoleKey: origKey,
+      netId: pin.netId,
+      netRole: model.netRoles.get(pin.netId) ?? "SIGNAL",
+      cursorBoardX: pt?.x ?? orig?.x ?? 0,
+      cursorBoardY: pt?.y ?? orig?.y ?? 0,
+    });
+  }
+
+  function resetCorrections() {
+    setCorrections(new Map());
+  }
 
   return (
     <section className="netlist-panel">
@@ -188,12 +319,27 @@ export function BreadboardView({ result }: Props) {
         <h2>面包板可视化网表</h2>
         <span>
           {usedNetIds.length} nets · {Array.from(model.holes.values()).reduce((sum, l) => sum + l.length, 0)} pins
+          {corrections.size > 0 ? (
+            <>
+              {" "}
+              ·{" "}
+              <button
+                type="button"
+                className="bb-reset-btn"
+                onClick={resetCorrections}
+                title="撤销所有手工修正"
+              >
+                ↺ 重置 {corrections.size} 项修正
+              </button>
+            </>
+          ) : null}
         </span>
       </div>
 
       <div className="breadboard-wrap">
         <svg
-          className="breadboard-svg"
+          ref={svgRef}
+          className={`breadboard-svg${drag ? " dragging" : ""}`}
           viewBox={`0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`}
           width="100%"
           preserveAspectRatio="xMidYMid meet"
@@ -417,8 +563,12 @@ export function BreadboardView({ result }: Props) {
             });
           })}
 
-          {/* 3. 已用孔（高亮 + 脉冲） */}
+          {/* 3. 已用孔（高亮 + 脉冲；可拖拽手工修正） */}
           {Array.from(model.holes.entries()).map(([k, pins]) => {
+            // 拖拽中的源孔不画在原位（避免与 ghost 重影）
+            if (drag && drag.origHoleKey === k && pins.every((p) => pinKeyOf(p.componentId, p.pinName) === drag.pinKey)) {
+              return null;
+            }
             const pos = holePos(k);
             if (!pos) return null;
             const netId = pins[0].netId;
@@ -427,10 +577,12 @@ export function BreadboardView({ result }: Props) {
             const isActive = activeNet === netId;
             const isDim = activeNet !== null && !isActive;
             const isAmbiguous = pins.some((p) => p.isAmbiguous);
+            const isCorrected = pins.some((p) => p.userCorrected);
+            const dragPin = pins[0]; // 多 pin 同孔时拖第一根
             return (
               <g
                 key={`used-${k}`}
-                className={`bb-used${isAmbiguous ? " ambiguous" : ""}`}
+                className={`bb-used${isAmbiguous ? " ambiguous" : ""}${isCorrected ? " corrected" : ""}`}
                 style={{ opacity: isDim ? 0.18 : 1 }}
                 onMouseEnter={(e) => {
                   const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
@@ -444,7 +596,16 @@ export function BreadboardView({ result }: Props) {
                   });
                 }}
                 onMouseLeave={() => setHover(null)}
-                onClick={() => setActiveNet((cur) => (cur === netId ? null : netId))}
+                onMouseDown={(e) => {
+                  // 仅左键 + 没有修饰键时进入拖拽模式
+                  if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+                  startDrag(e, dragPin, k);
+                }}
+                onClick={() => {
+                  // 拖拽结束的 click 已经被 mouseup 吞了；这里只处理纯点击
+                  if (drag) return;
+                  setActiveNet((cur) => (cur === netId ? null : netId));
+                }}
               >
                 <circle
                   cx={pos.x}
@@ -466,17 +627,97 @@ export function BreadboardView({ result }: Props) {
                     className="bb-ambig-ring"
                   />
                 ) : null}
+                {isCorrected ? (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={HOLE_R + 5}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth={1.4}
+                    strokeDasharray="2 2"
+                  />
+                ) : null}
                 <circle
                   cx={pos.x}
                   cy={pos.y}
                   r={HOLE_R + 1}
                   fill={color}
-                  stroke={isAmbiguous ? "#f59e0b" : "#fff"}
-                  strokeWidth={isAmbiguous ? 1.8 : 1.4}
+                  stroke={isCorrected ? "#10b981" : isAmbiguous ? "#f59e0b" : "#fff"}
+                  strokeWidth={isCorrected || isAmbiguous ? 1.8 : 1.4}
                 />
               </g>
             );
           })}
+
+          {/* 拖拽 ghost：原位淡圈 + 跟随光标的虚拟孔 + 候选高亮 */}
+          {drag ? (() => {
+            const orig = holePos(drag.origHoleKey);
+            const color = getNetColor(drag.netId, drag.netRole);
+            const target = nearestHoleKey(drag.cursorBoardX, drag.cursorBoardY, COL_STEP * 1.2);
+            const targetPos = target ? holePos(target) : null;
+            return (
+              <g key="drag-ghost" pointerEvents="none">
+                {orig ? (
+                  <circle
+                    cx={orig.x}
+                    cy={orig.y}
+                    r={HOLE_R + 1}
+                    fill="none"
+                    stroke={color}
+                    strokeOpacity={0.45}
+                    strokeWidth={1.4}
+                    strokeDasharray="3 2"
+                  />
+                ) : null}
+                {orig ? (
+                  <line
+                    x1={orig.x}
+                    y1={orig.y}
+                    x2={drag.cursorBoardX}
+                    y2={drag.cursorBoardY}
+                    stroke={color}
+                    strokeOpacity={0.5}
+                    strokeWidth={1.6}
+                    strokeDasharray="4 3"
+                  />
+                ) : null}
+                {targetPos ? (
+                  <>
+                    <circle
+                      cx={targetPos.x}
+                      cy={targetPos.y}
+                      r={HOLE_R + 5}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth={1.6}
+                      strokeDasharray="2 2"
+                      className="bb-ambig-ring"
+                    />
+                    <circle
+                      cx={targetPos.x}
+                      cy={targetPos.y}
+                      r={HOLE_R + 1}
+                      fill={color}
+                      fillOpacity={0.85}
+                      stroke="#10b981"
+                      strokeWidth={1.6}
+                    />
+                  </>
+                ) : (
+                  <circle
+                    cx={drag.cursorBoardX}
+                    cy={drag.cursorBoardY}
+                    r={HOLE_R + 1}
+                    fill={color}
+                    fillOpacity={0.4}
+                    stroke="#fff"
+                    strokeWidth={1.2}
+                  />
+                )}
+              </g>
+            );
+          })() : null}
 
           {/* 4. 标签层 (顶层): 列号 / 行字母 / 电源轨标签 / 元件标签 */}
           {Array.from({ length: BREADBOARD_COLS }, (_, i) => i + 1).map((col) =>
