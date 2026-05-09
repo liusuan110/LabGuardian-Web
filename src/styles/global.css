@@ -2145,6 +2145,33 @@ h2 {
   transition: opacity 0.2s;
 }
 
+.bb-used {
+  cursor: grab;
+}
+
+.breadboard-svg.dragging,
+.breadboard-svg.dragging .bb-used {
+  cursor: grabbing !important;
+}
+
+.bb-reset-btn {
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: var(--ink, #1f2937);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+
+.bb-reset-btn:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
 .bb-strip.used:hover rect {
   filter: brightness(1.05);
 }

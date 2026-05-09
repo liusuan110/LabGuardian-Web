@@ -32,6 +32,8 @@ export type BreadboardPinRef = {
   isAmbiguous?: boolean;
   ambiguityReasons?: string[];
   candidateHoleIds?: string[];
+  /** 用户拖拽手工修正过的孔位 */
+  userCorrected?: boolean;
 };
 
 export type StripKind =
@@ -96,6 +98,34 @@ export const ALL_STRIPS: Array<{ id: string; kind: StripKind }> = (() => {
 export function holeKey(addr: HoleAddr): string {
   if (addr.kind === "matrix") return `M:${addr.letter}${addr.row}`;
   return `R:${addr.rail}:${addr.col}`;
+}
+
+/** holeKey → HoleAddr (反向) */
+export function parseHoleKey(key: string): HoleAddr | null {
+  if (key.startsWith("M:")) {
+    const m = key.slice(2).match(/^([A-J])(\d+)$/);
+    if (!m) return null;
+    return { kind: "matrix", letter: m[1], row: parseInt(m[2], 10) };
+  }
+  if (key.startsWith("R:")) {
+    const parts = key.split(":");
+    if (parts.length !== 3) return null;
+    return { kind: "rail", rail: parts[1] as RailKind, col: parseInt(parts[2], 10) };
+  }
+  return null;
+}
+
+/** 把 HoleAddr 还原为可读 hole_id（用于展示，不一定和后端原 hole_id 字串完全一样） */
+export function holeAddrToDisplayId(addr: HoleAddr): string {
+  if (addr.kind === "matrix") return `${addr.letter}${addr.row}`;
+  const railSign = addr.rail.endsWith("plus") ? "+" : "-";
+  const half = addr.rail.startsWith("top") ? "TOP" : "BOT";
+  return `${half}${railSign}${addr.col}`;
+}
+
+/** 唯一标识一根 pin (跨结果稳定的 key) */
+export function pinKeyOf(componentId: string, pinName: string): string {
+  return `${componentId}::${pinName}`;
 }
 
 /** 把 hole_id 字符串解析成可绘制的地址。支持：A12 / e5 / +12 / -3 / TOP+12 / BOT-5 / top_plus@12 等 */
@@ -211,6 +241,7 @@ function pushPin(model: BreadboardModel, addr: HoleAddr, ref: BreadboardPinRef) 
 
 export function buildBreadboardModel(
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null,
+  corrections?: Map<string, string>,
 ): BreadboardModel {
   const model: BreadboardModel = {
     holes: new Map(),
@@ -225,20 +256,39 @@ export function buildBreadboardModel(
   };
   if (!result) return model;
 
+  /** 检查是否有用户手工修正：返回 (finalAddr, finalHoleIdString) */
+  const applyCorrection = (
+    componentId: string,
+    pinName: string,
+    addr: HoleAddr,
+    holeId: string,
+  ): { addr: HoleAddr; holeId: string; corrected: boolean } => {
+    if (!corrections || corrections.size === 0) return { addr, holeId, corrected: false };
+    const correctedKey = corrections.get(pinKeyOf(componentId, pinName));
+    if (!correctedKey) return { addr, holeId, corrected: false };
+    const correctedAddr = parseHoleKey(correctedKey);
+    if (!correctedAddr) return { addr, holeId, corrected: false };
+    return { addr: correctedAddr, holeId: holeAddrToDisplayId(correctedAddr), corrected: true };
+  };
+
   // PortVisualizationResult: 最干净的数据源
   if ("ports" in result && Array.isArray((result as PortVisualizationResult).ports)) {
     const r = result as PortVisualizationResult;
     r.ports.forEach((p) => {
-      const addr = parseHoleId(p.hole_id) ?? parseHoleId(`${p.col_name}${p.row_number}`);
-      if (!addr) return;
+      const addr0 = parseHoleId(p.hole_id) ?? parseHoleId(`${p.col_name}${p.row_number}`);
+      if (!addr0) return;
+      const componentId = p.component_id;
+      const pinName = p.pin_name || `pin${p.pin_id}`;
+      const fixed = applyCorrection(componentId, pinName, addr0, p.hole_id);
       const ref: BreadboardPinRef = {
-        componentId: p.component_id,
+        componentId,
         componentType: p.component_type,
-        pinName: p.pin_name || `pin${p.pin_id}`,
+        pinName,
         netId: p.net_id || "UNKNOWN",
-        holeId: p.hole_id,
+        holeId: fixed.holeId,
+        userCorrected: fixed.corrected,
       };
-      pushPin(model, addr, ref);
+      pushPin(model, fixed.addr, ref);
     });
     r.nets?.forEach((n) => {
       if (n.net_name) model.netLabels.set(n.net_id, n.net_name);
@@ -253,14 +303,17 @@ export function buildBreadboardModel(
     r.components.forEach((comp) => {
       comp.pins.forEach((pin) => {
         const netId = pin.electrical_net_id || pin.electrical_node_id || "UNKNOWN";
-        const addr = parseHoleId(pin.hole_id);
-        if (!addr) return;
-        pushPin(model, addr, {
+        const addr0 = parseHoleId(pin.hole_id);
+        if (!addr0) return;
+        const pinName = pin.pin_name || `pin${pin.pin_id}`;
+        const fixed = applyCorrection(comp.component_id, pinName, addr0, pin.hole_id);
+        pushPin(model, fixed.addr, {
           componentId: comp.component_id,
           componentType: comp.component_type,
-          pinName: pin.pin_name || `pin${pin.pin_id}`,
+          pinName,
           netId,
-          holeId: pin.hole_id,
+          holeId: fixed.holeId,
+          userCorrected: fixed.corrected,
         });
       });
     });
@@ -275,17 +328,21 @@ export function buildBreadboardModel(
   const components = (mapping.components as PipelineResult["stages"][number]["data"]["components"]) ?? [];
   components?.forEach((comp) => {
     comp.pins?.forEach((pin) => {
-      const addr = parseHoleId(pin.hole_id);
-      if (!addr) return;
-      pushPin(model, addr, {
-        componentId: comp.component_id ?? "?",
+      const addr0 = parseHoleId(pin.hole_id);
+      if (!addr0) return;
+      const componentId = comp.component_id ?? "?";
+      const pinName = pin.pin_name ?? `pin${pin.pin_id}`;
+      const fixed = applyCorrection(componentId, pinName, addr0, pin.hole_id ?? "");
+      pushPin(model, fixed.addr, {
+        componentId,
         componentType: comp.component_type ?? comp.class_name ?? "UNKNOWN",
-        pinName: pin.pin_name ?? `pin${pin.pin_id}`,
+        pinName,
         netId: pin.electrical_node_id ?? "UNKNOWN",
-        holeId: pin.hole_id ?? "",
+        holeId: fixed.holeId,
         isAmbiguous: pin.is_ambiguous,
         ambiguityReasons: pin.ambiguity_reasons,
         candidateHoleIds: pin.candidate_hole_ids,
+        userCorrected: fixed.corrected,
       });
     });
   });
