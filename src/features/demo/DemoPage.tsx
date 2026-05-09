@@ -70,7 +70,12 @@ export function DemoPage() {
           </div>
 
           {state.activeMode === "netlist" ? (
-            <NetlistView result={state.pipelineResult} />
+            <NetlistView
+              result={state.pipelineResult}
+              corrections={state.manualCorrections}
+              onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
+              onResetCorrections={() => dispatch({ type: "reset-manual-corrections" })}
+            />
           ) : (
             <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />
           )}

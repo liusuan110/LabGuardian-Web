@@ -24,6 +24,7 @@ export type DemoState = {
   rails: RailAssignments;
   activeMode: CanvasMode;
   pipelineResult: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
+  manualCorrections: Map<string, string>;
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
@@ -37,6 +38,8 @@ export type DemoAction =
   | { type: "set-option"; key: "conf" | "iou" | "imgsz"; value: number }
   | { type: "set-rail"; key: keyof RailAssignments; value: string }
   | { type: "set-mode"; mode: CanvasMode }
+  | { type: "set-manual-corrections"; corrections: Map<string, string> }
+  | { type: "reset-manual-corrections" }
   | { type: "run-start" }
   | { type: "run-success"; result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult }
   | { type: "run-error"; error: string }
@@ -70,6 +73,7 @@ export const initialDemoState: DemoState = {
   },
   activeMode: "detect",
   pipelineResult: null,
+  manualCorrections: new Map(),
   agentStatus: "idle",
   agentResult: null,
   agentError: "",
@@ -101,6 +105,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         runState: "ready",
         error: "",
         pipelineResult: null,
+        manualCorrections: new Map(),
         agentResult: null,
         agentError: "",
         agentStatus: "idle",
@@ -113,11 +118,16 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return { ...state, rails: { ...state.rails, [action.key]: action.value } };
     case "set-mode":
       return { ...state, activeMode: action.mode };
+    case "set-manual-corrections":
+      return { ...state, manualCorrections: new Map(action.corrections) };
+    case "reset-manual-corrections":
+      return { ...state, manualCorrections: new Map() };
     case "run-start":
       return {
         ...state,
         runState: "running",
         error: "",
+        manualCorrections: new Map(),
         agentStatus: "idle",
         agentError: "",
         chatMessages: [],

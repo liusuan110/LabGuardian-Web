@@ -18,6 +18,9 @@ import {
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
+  corrections: Map<string, string>;
+  onCorrectionChange: (corrections: Map<string, string>) => void;
+  onResetCorrections: () => void;
 };
 
 // SVG 几何参数
@@ -123,6 +126,7 @@ function stripGeometry(kind: StripKind): StripGeom {
 type Hover = {
   x: number;
   y: number;
+  sourceHoleKey?: string;
   netId: string;
   netRole: string;
   pins: BreadboardPinRef[];
@@ -159,14 +163,7 @@ function buildRoutePath(points: Point[], busY: number) {
   const branches = points.map((p) => `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} V ${busY.toFixed(1)}`);
   return [`M ${minX.toFixed(1)} ${busY.toFixed(1)} H ${maxX.toFixed(1)}`, ...branches].join(" ");
 }
-export function BreadboardView({ result }: Props) {
-  // 用户拖拽手工修正：(componentId::pinName) -> 新 holeKey
-  const [corrections, setCorrections] = useState<Map<string, string>>(new Map());
-  // 结果变化时自动清空修正（不同诊断结果之间不沾染）
-  useEffect(() => {
-    setCorrections(new Map());
-  }, [result]);
-
+export function BreadboardView({ result, corrections, onCorrectionChange, onResetCorrections }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
   const [hoverNet, setHoverNet] = useState<string | null>(null);
@@ -185,7 +182,7 @@ export function BreadboardView({ result }: Props) {
     })
     .map(([id]) => id);
 
-  if (!result || model.holes.size === 0) {
+  if (!result || (model.holes.size === 0 && model.unresolvedPins.length === 0)) {
     return (
       <section className="netlist-panel">
         <div className="panel-heading">
@@ -223,6 +220,24 @@ export function BreadboardView({ result }: Props) {
     const sx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
     const sy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
     return { x: sx, y: sy };
+  }
+
+  /** 悬停某个孔时，找到同一元件的其它孔位，用于显示“这个元件的另一端在哪里”。 */
+  function pairedHolesForHover(): Array<{ key: string; x: number; y: number; pins: BreadboardPinRef[] }> {
+    if (!hover?.sourceHoleKey) return [];
+    const paired = new Map<string, { key: string; x: number; y: number; pins: BreadboardPinRef[] }>();
+    hover.pins.forEach((pin) => {
+      const holes = model.componentHoles.get(pin.componentId);
+      if (!holes) return;
+      holes.forEach((key) => {
+        if (key === hover.sourceHoleKey) return;
+        const pos = holePos(key);
+        const pins = model.holes.get(key);
+        if (!pos || !pins) return;
+        paired.set(key, { key, x: pos.x, y: pos.y, pins });
+      });
+    });
+    return Array.from(paired.values());
   }
 
   /** 找离 (board x, y) 最近的孔 (matrix + rail，全部遍历)。返回 holeKey 或 null。 */
@@ -291,16 +306,14 @@ export function BreadboardView({ result }: Props) {
           const fromCursor = pt;
           const target = nearestHoleKey(fromCursor.x, fromCursor.y, COL_STEP * 1.2);
           if (target && (target !== cur.origHoleKey || moved)) {
-            setCorrections((prev) => {
-              const next = new Map(prev);
-              if (target === cur.origHoleKey) {
-                // 拖回原位 → 撤销修正
-                next.delete(cur.pinKey);
-              } else {
-                next.set(cur.pinKey, target);
-              }
-              return next;
-            });
+            const next = new Map(corrections);
+            if (target === cur.origHoleKey) {
+              // 拖回原位 → 撤销修正
+              next.delete(cur.pinKey);
+            } else {
+              next.set(cur.pinKey, target);
+            }
+            onCorrectionChange(next);
           }
         }
         return null; // 结束拖拽
@@ -333,7 +346,7 @@ export function BreadboardView({ result }: Props) {
   }
 
   function resetCorrections() {
-    setCorrections(new Map());
+    onResetCorrections();
   }
 
   function netRoute(netId: string, routeIndex: number): NetRoute | null {
@@ -657,6 +670,52 @@ export function BreadboardView({ result }: Props) {
             });
           })}
 
+          {/* 3.1 component pair highlight: 悬停一个孔时，高亮同一元件的其它孔位 */}
+          {(() => {
+            const sourceKey = hover?.sourceHoleKey;
+            const source = sourceKey ? holePos(sourceKey) : null;
+            if (!source) return null;
+            const pairs = pairedHolesForHover();
+            if (pairs.length === 0) return null;
+            const color = "#0f766e";
+            return (
+              <g className="bb-comp-pair-layer" pointerEvents="none">
+                {pairs.map((pair) => (
+                  <line
+                    key={`comp-pair-line-${sourceKey}-${pair.key}`}
+                    x1={source.x}
+                    y1={source.y}
+                    x2={pair.x}
+                    y2={pair.y}
+                    className="bb-comp-pair-line"
+                    stroke={color}
+                  />
+                ))}
+                <circle
+                  cx={source.x}
+                  cy={source.y}
+                  r={HOLE_R + 7}
+                  className="bb-comp-pair-source"
+                  stroke={color}
+                />
+                {pairs.map((pair) => (
+                  <circle
+                    key={`comp-pair-ring-${pair.key}`}
+                    cx={pair.x}
+                    cy={pair.y}
+                    r={HOLE_R + 7}
+                    className="bb-comp-pair-ring"
+                    stroke={color}
+                  >
+                    <title>
+                      {pair.pins.map((pin) => `${pin.componentId}.${pin.pinName}@${pin.holeId}`).join(" / ")}
+                    </title>
+                  </circle>
+                ))}
+              </g>
+            );
+          })()}
+
           {/* 3. 已用孔（高亮 + 脉冲；可拖拽手工修正） */}
           {Array.from(model.holes.entries()).map(([k, pins]) => {
             // 拖拽中的源孔不画在原位（避免与 ghost 重影）
@@ -685,6 +744,7 @@ export function BreadboardView({ result }: Props) {
 	                  setHover({
 	                    x: pos.x * scale + 8,
 	                    y: pos.y * scale - 8,
+                    sourceHoleKey: k,
                     netId,
                     netRole: role,
                     pins,
@@ -951,6 +1011,25 @@ export function BreadboardView({ result }: Props) {
         ) : null}
       </div>
 
+      {model.unresolvedPins.length > 0 ? (
+        <div className="bb-warning-panel" role="status">
+          <strong>有 {model.unresolvedPins.length} 个 pin 未能映射到前端孔位</strong>
+          <ul>
+            {model.unresolvedPins.slice(0, 6).map((pin, index) => (
+              <li key={`${pin.componentId}-${pin.pinName}-${index}`}>
+                <span>{pin.componentId}</span>
+                <span>{pin.pinName}</span>
+                <span>{pin.rawHoleId ?? "-"}</span>
+                <em>{pin.reason}</em>
+              </li>
+            ))}
+          </ul>
+          {model.unresolvedPins.length > 6 ? (
+            <p>另有 {model.unresolvedPins.length - 6} 个未显示。</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* 图例 / net 索引 */}
       <div className="bb-legend">
         {usedNetIds.map((netId) => {
@@ -961,13 +1040,13 @@ export function BreadboardView({ result }: Props) {
           const isActive = activeNet === netId;
           return (
             <button
-	              key={netId}
-	              type="button"
-	              className={`bb-legend-item ${isActive ? "active" : ""}`}
-	              onClick={() => setSelectedNet((cur) => (cur === netId ? null : netId))}
-	              onMouseEnter={() => setHoverNet(netId)}
-	              onMouseLeave={() => setHoverNet(null)}
-	            >
+              key={netId}
+              type="button"
+              className={`bb-legend-item ${isActive ? "active" : ""}`}
+              onClick={() => setSelectedNet((cur) => (cur === netId ? null : netId))}
+              onMouseEnter={() => setHoverNet(netId)}
+              onMouseLeave={() => setHoverNet(null)}
+            >
               <span className="bb-legend-dot" style={{ background: color }} />
               <span className="bb-legend-name">{netId}</span>
               {role !== "SIGNAL" ? <span className={`bb-role-tag ${role.toLowerCase()}`}>{role}</span> : null}
