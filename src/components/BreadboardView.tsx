@@ -536,12 +536,12 @@ export function BreadboardView({
                   className="bb-strip used"
                   style={{ opacity: isDim ? 0.18 : 1 }}
 	                  onMouseEnter={(e) => {
-	                    const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-	                    const scale = rect.width / BOARD_WIDTH;
+	                    const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+	                    const scale = svgRect.width / BOARD_WIDTH;
 	                    setHoverNet(usage.netId);
 	                    setHover({
-	                      x: g.cx * scale + 8,
-	                      y: g.cy * scale - 8,
+	                      x: svgRect.left + g.cx * scale + 8,
+	                      y: svgRect.top + g.cy * scale - 8,
                       netId: usage.netId,
                       netRole: usage.role,
                       pins: usage.pins,
@@ -791,12 +791,12 @@ export function BreadboardView({
                 className={`bb-used${isAmbiguous ? " ambiguous" : ""}${isCorrected ? " corrected" : ""}`}
                 style={{ opacity: isDim ? 0.18 : 1 }}
 	                onMouseEnter={(e) => {
-	                  const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-	                  const scale = rect.width / BOARD_WIDTH;
+	                  const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+	                  const scale = svgRect.width / BOARD_WIDTH;
 	                  setHoverNet(netId);
 	                  setHover({
-	                    x: pos.x * scale + 8,
-	                    y: pos.y * scale - 8,
+	                    x: svgRect.left + pos.x * scale + 8,
+	                    y: svgRect.top + pos.y * scale - 8,
                     sourceHoleKey: k,
                     netId,
                     netRole: role,

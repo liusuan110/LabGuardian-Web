@@ -127,27 +127,29 @@ export function DemoPage() {
             <ModeTabs mode={state.activeMode} onChange={(mode) => dispatch({ type: "set-mode", mode })} />
           </div>
 
-          {state.activeMode === "netlist" ? (
-            <NetlistView
-              result={state.pipelineResult}
-              corrections={state.manualCorrections}
-              onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
-              onResetCorrections={() => {
-                dispatch({ type: "reset-manual-corrections" });
-                dispatch({ type: "reset-manual-net-roles" });
-              }}
-              onApplyCorrections={handleApplyCorrections}
-              isApplyingCorrections={state.runState === "running"}
-              selectedReferenceId={state.selectedReferenceId}
-              netRoleAssignments={state.manualNetRoleAssignments}
-              onNetRoleChange={(key, assignment) =>
-                dispatch({ type: "set-manual-net-role", key, assignment })
-              }
-              onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
-            />
-          ) : (
-            <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />
-          )}
+          <div className="stage-body">
+            {state.activeMode === "netlist" ? (
+              <NetlistView
+                result={state.pipelineResult}
+                corrections={state.manualCorrections}
+                onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
+                onResetCorrections={() => {
+                  dispatch({ type: "reset-manual-corrections" });
+                  dispatch({ type: "reset-manual-net-roles" });
+                }}
+                onApplyCorrections={handleApplyCorrections}
+                isApplyingCorrections={state.runState === "running"}
+                selectedReferenceId={state.selectedReferenceId}
+                netRoleAssignments={state.manualNetRoleAssignments}
+                onNetRoleChange={(key, assignment) =>
+                  dispatch({ type: "set-manual-net-role", key, assignment })
+                }
+                onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
+              />
+            ) : (
+              <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />
+            )}
+          </div>
         </section>
 
         <DiagnosticsPanel result={state.pipelineResult} />

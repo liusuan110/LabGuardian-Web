@@ -63,6 +63,16 @@ function parseComparisonReport(result: unknown): ComparisonReport | null {
   return cr as ComparisonReport;
 }
 
+function formatComponentInfo(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const id = d.component_id ?? d.id ?? "";
+  const type = d.component_type ?? d.type ?? d.class_name ?? "";
+  if (!id && !type) return null;
+  if (type) return `${String(id)}(${String(type)})`;
+  return String(id);
+}
+
 function JsonDetail({ label, data }: { label: string; data: unknown }) {
   if (data === undefined) return null;
   return (
@@ -80,6 +90,10 @@ function ComparisonDiffCard({ item, index }: { item: ComparisonReportItem; index
   const code = item.error_code ?? "UNKNOWN";
   const label = item.title ?? ERROR_LABELS[code] ?? code;
   const sev = String(item.severity ?? "warning");
+
+  const refInfo = formatComponentInfo(item.component_ref);
+  const actualInfo = formatComponentInfo(item.component_actual);
+
   return (
     <article className={`comparison-diff-card ${severityClass(sev)}`}>
       <div className="comparison-diff-head">
@@ -94,12 +108,17 @@ function ComparisonDiffCard({ item, index }: { item: ComparisonReportItem; index
           {item.suggested_action}
         </p>
       ) : null}
+      {refInfo || actualInfo ? (
+        <p className="comparison-diff-mapping">
+          {refInfo ? <span className="mapping-ref">参考元件 {refInfo}</span> : null}
+          {refInfo && actualInfo ? <span className="mapping-arrow"> → 匹配到 → </span> : null}
+          {actualInfo ? <span className="mapping-actual">当前元件 {actualInfo}</span> : null}
+        </p>
+      ) : null}
       <div className="comparison-diff-details">
-        <JsonDetail label="期望 (expected)" data={item.expected} />
-        <JsonDetail label="实际 (actual)" data={item.actual} />
+        <JsonDetail label="期望连接关系 (expected)" data={item.expected} />
+        <JsonDetail label="实际连接关系 (actual)" data={item.actual} />
         <JsonDetail label="证据 (evidence_refs)" data={item.evidence_refs} />
-        <JsonDetail label="参考元件 (component_ref)" data={item.component_ref} />
-        <JsonDetail label="实际元件 (component_actual)" data={item.component_actual} />
       </div>
     </article>
   );
@@ -119,6 +138,11 @@ export function DiagnosticsPanel({ result }: Props) {
   const similarity = typeof summary?.similarity === "number" ? summary.similarity : null;
   const referenceName = summary?.reference_name;
   const totalItemCount = typeof summary?.total_item_count === "number" ? summary.total_item_count : items.length;
+
+  const summaryRecord = summary as Record<string, unknown> | undefined;
+  const ignoreComponentId = summaryRecord?.ignore_component_id === true;
+  const ignoreHoleId = summaryRecord?.ignore_hole_id === true;
+  const ignorePassivePinOrder = summaryRecord?.ignore_passive_pin_order === true;
 
   const filteredItems = items.filter((item) => {
     const code = String(item.error_code ?? "");
@@ -155,10 +179,12 @@ export function DiagnosticsPanel({ result }: Props) {
         <section className={`comparison-summary-card ${logicCorrect ? "correct" : "incorrect"}`}>
           <div className="comparison-summary-header">
             <BookOpen size={18} />
-            <span>参考电路逻辑比较</span>
+            <span>逻辑网表图比较</span>
           </div>
           <strong className="comparison-summary-status">
-            {logicCorrect ? "逻辑正确" : "逻辑不一致"}
+            {logicCorrect
+              ? "逻辑正确：当前电路与参考电路连接关系等价。"
+              : "逻辑不一致"}
           </strong>
           {similarity !== null ? (
             <p className="comparison-summary-similarity">相似度 {asPercent(similarity)}</p>
@@ -167,6 +193,16 @@ export function DiagnosticsPanel({ result }: Props) {
             <p className="comparison-summary-ref">
               参考电路：{referenceName}
             </p>
+          ) : null}
+          <p className="comparison-summary-hint">
+            元件编号和具体孔位可以不同；系统按元件类型、网络连接关系和输入/输出/电源/地角色判断。
+          </p>
+          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder) ? (
+            <div className="comparison-ignore-badges">
+              {ignoreComponentId ? <span className="ignore-badge">忽略元件编号</span> : null}
+              {ignoreHoleId ? <span className="ignore-badge">忽略具体孔位</span> : null}
+              {ignorePassivePinOrder ? <span className="ignore-badge">无极性两脚元件允许引脚互换</span> : null}
+            </div>
           ) : null}
           {logicCorrect && filteredItems.length === 0 ? (
             <p className="comparison-summary-hint">

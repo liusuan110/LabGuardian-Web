@@ -173,7 +173,7 @@ h2 {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr) 360px;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .input-panel {
@@ -310,11 +310,18 @@ h2 {
 .main-stage {
   min-width: 0;
   padding: 16px;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  height: 700px;
+  min-height: 820px;
   overflow-y: auto;
+}
+
+.stage-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .stage-header {
@@ -361,6 +368,14 @@ h2 {
   background-size: 24px 24px;
 }
 
+.stage-body > .result-canvas,
+.stage-body > .empty-stage,
+.stage-body > .mapping-panel,
+.stage-body > .netlist-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .canvas-tools {
   display: flex;
   justify-content: flex-end;
@@ -385,8 +400,9 @@ h2 {
 
 .result-canvas {
   display: block;
-  height: auto;
-  max-height: 70vh;
+  width: 100%;
+  height: 100%;
+  max-height: none;
   object-fit: contain;
 }
 
@@ -1074,6 +1090,10 @@ h2 {
 @media (max-width: 760px) {
   .app-shell {
     padding: 14px;
+  }
+
+  .main-stage {
+    min-height: 520px;
   }
 
   .app-header,
@@ -2694,7 +2714,7 @@ h2 {
 }
 
 .bb-tooltip {
-  position: absolute;
+  position: fixed;
   pointer-events: none;
   background: rgba(17, 24, 39, 0.94);
   color: #fff;
@@ -2702,8 +2722,10 @@ h2 {
   padding: 8px 10px;
   font-size: 11px;
   line-height: 1.5;
-  z-index: 10;
+  z-index: 9999;
   min-width: 160px;
+  max-width: 360px;
+  overflow-wrap: anywhere;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
   transform: translate(-50%, -100%);
 }
@@ -3184,9 +3206,53 @@ h2 {
   line-height: 1.5;
 }
 
+.comparison-diff-mapping {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #eef8f5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mapping-ref {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.mapping-arrow {
+  color: var(--muted);
+}
+
+.mapping-actual {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .comparison-diff-details {
   display: grid;
   gap: 6px;
+}
+
+.comparison-ignore-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ignore-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e3f2fd;
+  color: #1976d2;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .json-detail {
