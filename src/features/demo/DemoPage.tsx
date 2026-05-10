@@ -41,14 +41,20 @@ export function DemoPage() {
 
   async function handleApplyCorrections() {
     const result = state.pipelineResult;
-    if (!result || !("stages" in result) || state.manualCorrections.size === 0 || state.runState === "running") {
+    if (!result || !("stages" in result) || state.runState === "running") {
       return;
     }
 
     const components = (getStageData(result, "mapping").components ?? []) as PipelineComponent[];
     const corrections = buildCorrectionPatch(result, state.manualCorrections);
-    if (components.length === 0 || corrections.length === 0) {
-      dispatch({ type: "run-error", error: "没有可提交的手动修正或 mapping components。" });
+    const netRoleAssignments = Array.from(state.manualNetRoleAssignments.values());
+
+    if (components.length === 0) {
+      dispatch({ type: "run-error", error: "没有可提交的 mapping components。" });
+      return;
+    }
+    if (corrections.length === 0 && netRoleAssignments.length === 0) {
+      dispatch({ type: "run-error", error: "请先修改孔位或选择 VIN/VOUT/VCC/GND。" });
       return;
     }
 
@@ -59,6 +65,7 @@ export function DemoPage() {
         job_id: result.job_id,
         components,
         corrections,
+        net_role_assignments: netRoleAssignments,
         rail_assignments: state.rails,
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
@@ -125,10 +132,18 @@ export function DemoPage() {
               result={state.pipelineResult}
               corrections={state.manualCorrections}
               onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
-              onResetCorrections={() => dispatch({ type: "reset-manual-corrections" })}
+              onResetCorrections={() => {
+                dispatch({ type: "reset-manual-corrections" });
+                dispatch({ type: "reset-manual-net-roles" });
+              }}
               onApplyCorrections={handleApplyCorrections}
               isApplyingCorrections={state.runState === "running"}
               selectedReferenceId={state.selectedReferenceId}
+              netRoleAssignments={state.manualNetRoleAssignments}
+              onNetRoleChange={(key, assignment) =>
+                dispatch({ type: "set-manual-net-role", key, assignment })
+              }
+              onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
             />
           ) : (
             <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />

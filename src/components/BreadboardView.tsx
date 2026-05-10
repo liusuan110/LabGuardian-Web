@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult } from "../types/pipeline";
+import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, ManualNetRole } from "../types/pipeline";
 import {
   ALL_STRIPS,
   BREADBOARD_COLS,
@@ -24,6 +24,9 @@ type Props = {
   onApplyCorrections: () => void;
   isApplyingCorrections?: boolean;
   selectedReferenceId?: string | null;
+  netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
+  onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
+  onResetNetRoles?: () => void;
 };
 
 // SVG 几何参数
@@ -174,6 +177,9 @@ export function BreadboardView({
   onApplyCorrections,
   isApplyingCorrections = false,
   selectedReferenceId = null,
+  netRoleAssignments = new Map(),
+  onNetRoleChange,
+  onResetNetRoles,
 }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
@@ -192,6 +198,38 @@ export function BreadboardView({
       return a.localeCompare(b);
     })
     .map(([id]) => id);
+
+  const allPins = useMemo(() => {
+    const map = new Map<string, BreadboardPinRef>();
+    for (const pins of model.holes.values()) {
+      for (const pin of pins) {
+        const key = pinKeyOf(pin.componentId, pin.pinName);
+        if (!map.has(key)) map.set(key, pin);
+      }
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => a.componentId.localeCompare(b.componentId) || a.pinName.localeCompare(b.pinName),
+    );
+  }, [model]);
+
+  function handleRoleChange(pin: BreadboardPinRef, role: string) {
+    if (!onNetRoleChange) return;
+    const key = `${pin.componentId}.${pin.pinName}`;
+    if (!role) {
+      onNetRoleChange(key, null);
+      return;
+    }
+    const assignment: ManualNetRoleAssignment = {
+      role: role as ManualNetRole,
+      source: "manual_netlist_select",
+      component_id: pin.componentId,
+      pin_name: pin.pinName,
+      hole_id: pin.holeId,
+      electrical_node_id: pin.electricalNodeId,
+      electrical_net_id: pin.electricalNetId,
+    };
+    onNetRoleChange(key, assignment);
+  }
 
   if (!result || (model.holes.size === 0 && model.unresolvedPins.length === 0)) {
     return (
@@ -358,6 +396,7 @@ export function BreadboardView({
 
   function resetCorrections() {
     onResetCorrections();
+    if (onResetNetRoles) onResetNetRoles();
   }
 
   function netRoute(netId: string, routeIndex: number): NetRoute | null {
@@ -405,7 +444,7 @@ export function BreadboardView({
         <h2>面包板可视化网表</h2>
         <span>
           {usedNetIds.length} nets · {Array.from(model.holes.values()).reduce((sum, l) => sum + l.length, 0)} pins
-          {corrections.size > 0 ? (
+          {corrections.size > 0 || netRoleAssignments.size > 0 ? (
             <>
               {" "}
               ·{" "}
@@ -415,7 +454,10 @@ export function BreadboardView({
                 onClick={resetCorrections}
                 title="撤销所有手工修正"
               >
-                ↺ 重置 {corrections.size} 项修正
+                ↺ 重置
+                {corrections.size > 0 ? ` ${corrections.size} 项孔位修正` : ""}
+                {corrections.size > 0 && netRoleAssignments.size > 0 ? " +" : ""}
+                {netRoleAssignments.size > 0 ? ` ${netRoleAssignments.size} 项角色` : ""}
               </button>
             </>
           ) : null}
@@ -1041,13 +1083,69 @@ export function BreadboardView({
         </div>
       ) : null}
 
+      {/* 引脚网络角色选择 */}
+      {allPins.length > 0 ? (
+        <div className="bb-pin-role-panel">
+          <div className="panel-heading">
+            <h2>引脚网络角色</h2>
+            <span>
+              {netRoleAssignments.size > 0 ? (
+                <span className="manual-role-summary">已指定 {netRoleAssignments.size} 个角色</span>
+              ) : (
+                <span className="manual-role-summary">未指定</span>
+              )}
+            </span>
+          </div>
+          <div className="bb-pin-role-table-wrap">
+            <table className="bb-pin-role-table">
+              <thead>
+                <tr>
+                  <th>元件</th>
+                  <th>引脚</th>
+                  <th>孔位</th>
+                  <th>网络</th>
+                  <th>角色</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allPins.map((pin) => {
+                  const key = `${pin.componentId}.${pin.pinName}`;
+                  const assignment = netRoleAssignments.get(key);
+                  return (
+                    <tr key={key}>
+                      <td>{pin.componentId}</td>
+                      <td>{pin.pinName}</td>
+                      <td>{pin.holeId}</td>
+                      <td className="net-cell">{pin.netId}</td>
+                      <td>
+                        <select
+                          className="net-role-select"
+                          value={assignment?.role ?? ""}
+                          onChange={(e) => handleRoleChange(pin, e.target.value)}
+                        >
+                          <option value="">无</option>
+                          <option value="VIN">VIN / 输入</option>
+                          <option value="VOUT">VOUT / 输出</option>
+                          <option value="VCC">VCC / 正电</option>
+                          <option value="GND">GND / 地</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       {/* 手动修正提交区域 */}
       <div className="manual-correction-actions">
         <button
           type="button"
           className="run-button correction-compare-button"
           onClick={onApplyCorrections}
-          disabled={corrections.size === 0 || isApplyingCorrections}
+          disabled={(corrections.size === 0 && netRoleAssignments.size === 0) || isApplyingCorrections}
           title={
             selectedReferenceId
               ? "将手工修正提交给后端，重算拓扑并与参考电路比较"
@@ -1060,15 +1158,34 @@ export function BreadboardView({
               ? "确认修正并与参考电路比较"
               : "确认修正并重算网表"}
         </button>
-        {selectedReferenceId ? (
-          <p className="muted">
-            将使用修正后的连接结果与当前参考电路进行逻辑拓扑比较。
-          </p>
-        ) : (
-          <p className="muted">
-            当前未选择参考电路，点击后只会更新修正后的网表和基础诊断，不做参考比较。
-          </p>
-        )}
+        <div className="manual-correction-meta">
+          {corrections.size > 0 || netRoleAssignments.size > 0 ? (
+            <div className="manual-correction-counts">
+              {corrections.size > 0 ? (
+                <span>孔位修正 {corrections.size} 项</span>
+              ) : null}
+              {netRoleAssignments.size > 0 ? (
+                <span>网络角色 {netRoleAssignments.size} 项</span>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="manual-correction-reset-btns">
+            {corrections.size > 0 ? (
+              <button type="button" className="bb-reset-btn" onClick={onResetCorrections}>
+                ↺ 重置孔位修正
+              </button>
+            ) : null}
+            {netRoleAssignments.size > 0 && onResetNetRoles ? (
+              <button type="button" className="bb-reset-btn" onClick={onResetNetRoles}>
+                ↺ 重置网络角色
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <p className="muted">
+          你可以只选择 VIN/VOUT/VCC/GND，不修改孔位，也可以提交比较。
+          这些角色会标记到该 pin 所在的电气网络，而不是只标记单个孔。
+        </p>
       </div>
 
       {/* 图例 / net 索引 */}

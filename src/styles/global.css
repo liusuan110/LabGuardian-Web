@@ -806,6 +806,260 @@ h2 {
   font-weight: 800;
 }
 
+.net-role-select {
+  min-width: 120px;
+}
+
+.manual-role-summary {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.manual-correction-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.manual-correction-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.manual-correction-counts {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.manual-correction-reset-btns {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== Board Role Toolbar ===== */
+.board-role-toolbar {
+  display: grid;
+  gap: 8px;
+}
+
+.board-role-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.board-role-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.board-role-button:hover {
+  background: #eef8f5;
+  border-color: #b8dbd4;
+}
+
+.board-role-button.active {
+  border-color: var(--accent);
+  background: #e6f4f1;
+  color: var(--accent-dark);
+}
+
+.board-role-button.role-vin.active {
+  border-color: #f59e0b;
+  background: #fff7e8;
+  color: #92400e;
+}
+
+.board-role-button.role-vout.active {
+  border-color: #8b5cf6;
+  background: #f3f0ff;
+  color: #5b21b6;
+}
+
+.board-role-button.role-vcc.active {
+  border-color: #dc2626;
+  background: #fff1f3;
+  color: #9f1239;
+}
+
+.board-role-button.role-gnd.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.board-role-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.board-role-badge {
+  padding: 1px 6px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Role Summary in Netlist View ===== */
+.bb-role-summary-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.bb-role-summary-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bb-role-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  font-size: 12px;
+}
+
+.bb-role-summary-item.role-vin {
+  border-color: #f59e0b;
+  background: #fff7e8;
+  color: #92400e;
+}
+
+.bb-role-summary-item.role-vout {
+  border-color: #8b5cf6;
+  background: #f3f0ff;
+  color: #5b21b6;
+}
+
+.bb-role-summary-item.role-vcc {
+  border-color: #dc2626;
+  background: #fff1f3;
+  color: #9f1239;
+}
+
+.bb-role-summary-item.role-gnd {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.bb-role-summary-target {
+  font-family: monospace;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 140px;
+}
+
+.bb-role-remove-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.bb-role-remove-btn:hover {
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--danger);
+}
+
+/* ===== Pin Role Table ===== */
+.bb-pin-role-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.bb-pin-role-table-wrap {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.bb-pin-role-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bb-pin-role-table th,
+.bb-pin-role-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.bb-pin-role-table td.net-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 160px;
+}
+
+.bb-pin-role-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-soft);
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.bb-pin-role-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.bb-pin-role-table tbody tr:hover {
+  background: #f6f9f8;
+}
+
+.net-role-select {
+  min-width: 120px;
+}
+
+.net-role-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.role-vin { background: #f59e0b; }
+.role-vout { background: #8b5cf6; }
+.role-vcc { background: #dc2626; }
+.role-gnd { background: #2563eb; }
+
 @media (max-width: 1180px) {
   .demo-grid,
   .bottom-grid {

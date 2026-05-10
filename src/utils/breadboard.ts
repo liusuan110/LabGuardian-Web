@@ -29,6 +29,10 @@ export type BreadboardPinRef = {
   pinName: string;
   netId: string;
   holeId: string;
+  /** 电气节点 ID（如 ROW_10_L） */
+  electricalNodeId: string;
+  /** 电气网络 ID（如 NET_001） */
+  electricalNetId: string;
   isAmbiguous?: boolean;
   ambiguityReasons?: string[];
   candidateHoleIds?: string[];
@@ -378,6 +382,8 @@ export function buildBreadboardModel(
         componentType: p.component_type,
         pinName,
         netId: p.net_id || "UNKNOWN",
+        electricalNodeId: p.net_id || "UNKNOWN",
+        electricalNetId: p.net_id || "UNKNOWN",
         holeId: fixed.holeId,
         userCorrected: fixed.corrected,
       };
@@ -408,6 +414,8 @@ export function buildBreadboardModel(
           componentType: comp.component_type,
           pinName,
           netId,
+          electricalNodeId: pin.electrical_node_id || "UNKNOWN",
+          electricalNetId: pin.electrical_net_id || pin.electrical_node_id || "UNKNOWN",
           holeId: fixed.holeId,
           userCorrected: fixed.corrected,
         });
@@ -422,6 +430,25 @@ export function buildBreadboardModel(
   // PipelineResult: 走 mapping 阶段
   const mapping = getStageData(result, "mapping");
   const components = (mapping.components as PipelineResult["stages"][number]["data"]["components"]) ?? [];
+
+  // 从 topology 阶段的 netlist_v2 构建 node_id -> electrical_net_id 映射
+  const topology = getStageData(result, "topology");
+  const nodeToNetId = new Map<string, string>();
+  const netlist = topology.netlist_v2;
+  if (netlist && Array.isArray(netlist.nets)) {
+    for (const net of netlist.nets) {
+      const eNetId = net.electrical_net_id;
+      if (!eNetId) continue;
+      if (Array.isArray(net.nodes)) {
+        for (const nodeId of net.nodes) {
+          if (typeof nodeId === "string") {
+            nodeToNetId.set(nodeId, eNetId);
+          }
+        }
+      }
+    }
+  }
+
   components?.forEach((comp) => {
     comp.pins?.forEach((pin) => {
       const addr0 = parseHoleId(pin.hole_id);
@@ -433,11 +460,15 @@ export function buildBreadboardModel(
         return;
       }
       const fixed = applyCorrection(componentId, pinName, addr0, pin.hole_id ?? "");
+      const nodeId = pin.electrical_node_id ?? "UNKNOWN";
+      const netId = nodeToNetId.get(nodeId) || nodeId;
       pushPin(model, fixed.addr, {
         componentId,
         componentType,
         pinName,
-        netId: pin.electrical_node_id ?? "UNKNOWN",
+        netId,
+        electricalNodeId: nodeId,
+        electricalNetId: netId,
         holeId: fixed.holeId,
         isAmbiguous: pin.is_ambiguous,
         ambiguityReasons: pin.ambiguity_reasons,

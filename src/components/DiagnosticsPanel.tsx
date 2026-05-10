@@ -19,6 +19,12 @@ const ERROR_LABELS: Record<string, string> = {
   OPEN_CIRCUIT: "断路",
   EXTRA_CONNECTION: "多余连接",
   INCOMPLETE_CIRCUIT: "电路未完成",
+  ROLE_MISMATCH: "网络角色错误",
+  INPUT_NODE_MISMATCH: "输入节点错误",
+  OUTPUT_NODE_MISMATCH: "输出节点错误",
+  POWER_NODE_MISMATCH: "正电节点错误",
+  GROUND_NODE_MISMATCH: "地节点错误",
+  ROLE_TARGET_NOT_CONNECTED: "标记位置未连接",
 };
 
 const SEVERITY_ORDER: Record<string, number> = {

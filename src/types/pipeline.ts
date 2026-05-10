@@ -45,6 +45,18 @@ export type ManualCorrectionPatch = {
   source: "manual_drag";
 };
 
+export type ManualNetRole = "VIN" | "VOUT" | "VCC" | "GND";
+
+export type ManualNetRoleAssignment = {
+  role: ManualNetRole;
+  source?: "manual_netlist_select";
+  component_id?: string | null;
+  pin_name?: string | null;
+  hole_id?: string | null;
+  electrical_node_id?: string | null;
+  electrical_net_id?: string | null;
+};
+
 export type CorrectedRecomputeRequest = {
   station_id: string;
   job_id?: string | null;
@@ -53,6 +65,7 @@ export type CorrectedRecomputeRequest = {
   rail_assignments?: RailAssignments;
   reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
+  net_role_assignments?: ManualNetRoleAssignment[];
 };
 
 export type Detection = {

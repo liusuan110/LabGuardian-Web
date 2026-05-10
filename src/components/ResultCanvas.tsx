@@ -87,17 +87,18 @@ function drawComponents(
 
 function PinCoordinateView({ result }: { result: PipelineResult }) {
   const mappingData = getStageData(result, "mapping");
-  
-  const components = mappingData.components as Array<{
-    component_id?: string;
-    component_type?: string;
-    pins?: Array<{
-      pin_id?: number;
-      pin_name?: string;
-      hole_id?: string;
-      electrical_node_id?: string;
-    }>;
-  }> || [];
+
+  const components =
+    (mappingData.components as Array<{
+      component_id?: string;
+      component_type?: string;
+      pins?: Array<{
+        pin_id?: number;
+        pin_name?: string;
+        hole_id?: string;
+        electrical_node_id?: string;
+      }>;
+    }>) || [];
 
   if (components.length === 0) {
     return (
@@ -118,14 +119,14 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
       </div>
 
       <div className="pin-coordinate-list">
-        {components.map(comp => (
+        {components.map((comp) => (
           <div key={comp.component_id} className="pin-coordinate-card">
             <div className="component-header">
               <span className="component-id">{comp.component_id}</span>
               <span className="component-type">{comp.component_type}</span>
             </div>
             <div className="pins-container">
-              {comp.pins?.map(pin => (
+              {comp.pins?.map((pin) => (
                 <div key={pin.pin_id} className="pin-item">
                   <span className="pin-name">{pin.pin_name || `pin${pin.pin_id}`}</span>
                   <span className="arrow">→</span>
