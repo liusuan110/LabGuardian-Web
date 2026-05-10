@@ -62,6 +62,7 @@ export function usePipelineRun(
         conf: state.conf,
         iou: state.iou,
         imgsz: state.imgsz,
+        reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
       });
@@ -88,6 +89,7 @@ export function usePipelineRun(
         conf: state.conf,
         iou: state.iou,
         imgsz: state.imgsz,
+        reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
       });
@@ -117,6 +119,7 @@ export function usePipelineRun(
         conf: state.conf,
         iou: state.iou,
         imgsz: state.imgsz,
+        reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
       });

@@ -1,5 +1,5 @@
 import type { AgentAction, AgentProgressPhase, AgentStatusResponse, ChatMessage } from "../../types/agent";
-import type { PipelineResult, PipelineStageName, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
+import type { PipelineResult, PipelineStageName, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult, ReferenceSummary } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
 
@@ -30,6 +30,10 @@ export type DemoState = {
   agentError: string;
   chatMessages: ChatMessage[];
   pipelineProgress: PipelineProgress;
+  references: ReferenceSummary[];
+  selectedReferenceId: string | null;
+  referenceStatus: "idle" | "loading" | "success" | "error";
+  referenceError: string;
 };
 
 export type DemoAction =
@@ -52,7 +56,11 @@ export type DemoAction =
   | { type: "chat-stream-done"; messageId: string }
   | { type: "agent-error"; error: string }
   | { type: "chat-assistant"; content: string; actions?: AgentAction[] }
-  | { type: "pipeline-progress-tick"; activeStage: PipelineStageName | null; completedStages: PipelineStageName[] };
+  | { type: "pipeline-progress-tick"; activeStage: PipelineStageName | null; completedStages: PipelineStageName[] }
+  | { type: "references-loading" }
+  | { type: "references-success"; references: ReferenceSummary[] }
+  | { type: "references-error"; error: string }
+  | { type: "select-reference"; referenceId: string | null };
 
 export const initialDemoState: DemoState = {
   stationId: "LG-DEMO-01",
@@ -81,6 +89,10 @@ export const initialDemoState: DemoState = {
   agentError: "",
   chatMessages: [],
   pipelineProgress: { activeStage: null, completedStages: [] },
+  references: [],
+  selectedReferenceId: null,
+  referenceStatus: "idle",
+  referenceError: "",
 };
 
 const PROGRESS_PHASE_TEXT: Record<AgentProgressPhase, string> = {
@@ -143,11 +155,32 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         error: "",
         pipelineProgress: { activeStage: "topology", completedStages: ["detect", "pin_detect", "mapping"] },
       };
-    case "corrected-recompute-success":
+    case "corrected-recompute-success": {
+      // 合并策略：保留旧 pipelineResult 中的 detect/pin_detect/mapping 阶段数据，
+      // 用新结果中的 topology/validate/semantic_analysis 阶段替换，避免清空引脚定位与检测结果。
+      const oldResult = state.pipelineResult;
+      let mergedResult = action.result;
+      if (
+        oldResult &&
+        "stages" in oldResult &&
+        Array.isArray(oldResult.stages) &&
+        action.result &&
+        "stages" in action.result &&
+        Array.isArray(action.result.stages)
+      ) {
+        const newStages = action.result.stages;
+        const oldStages = oldResult.stages;
+        const newStageNames = new Set(newStages.map((s) => s.stage));
+        const preservedStages = oldStages.filter((s) => !newStageNames.has(s.stage));
+        mergedResult = {
+          ...action.result,
+          stages: [...preservedStages, ...newStages],
+        } as PipelineResult;
+      }
       return {
         ...state,
         runState: "success",
-        pipelineResult: action.result,
+        pipelineResult: mergedResult,
         manualCorrections: new Map(),
         agentResult: null,
         agentError: "",
@@ -156,6 +189,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
           completedStages: ["detect", "pin_detect", "mapping", "topology", "validate", "semantic_analysis"],
         },
       };
+    }
     case "run-success":
       return {
         ...state,
@@ -318,6 +352,30 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
             actions: action.actions,
           },
         ],
+      };
+    case "references-loading":
+      return { ...state, referenceStatus: "loading", referenceError: "" };
+    case "references-success":
+      return {
+        ...state,
+        referenceStatus: "success",
+        references: action.references,
+        referenceError: "",
+        selectedReferenceId:
+          state.selectedReferenceId ??
+          action.references[0]?.reference_id ??
+          null,
+      };
+    case "references-error":
+      return {
+        ...state,
+        referenceStatus: "error",
+        referenceError: action.error,
+      };
+    case "select-reference":
+      return {
+        ...state,
+        selectedReferenceId: action.referenceId,
       };
     default:
       return state;

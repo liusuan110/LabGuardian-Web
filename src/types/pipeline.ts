@@ -17,12 +17,22 @@ export type RailAssignments = {
   bot_minus: string;
 };
 
+export type ReferenceSummary = {
+  reference_id: string;
+  name: string;
+  description?: string;
+  format: "logical_reference_v1" | string;
+  component_count: number;
+  net_count: number;
+};
+
 export type PipelineRequest = {
   station_id: string;
   images_b64: string[];
   conf: number;
   iou: number;
   imgsz: number;
+  reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
   rail_assignments?: RailAssignments;
 };
@@ -41,6 +51,7 @@ export type CorrectedRecomputeRequest = {
   components: PipelineComponent[];
   corrections: ManualCorrectionPatch[];
   rail_assignments?: RailAssignments;
+  reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
 };
 
@@ -93,6 +104,33 @@ export type NetlistV2 = {
   }>;
   components?: Array<Record<string, unknown>>;
   [key: string]: unknown;
+};
+
+export type ComparisonReportItem = {
+  error_code: string;
+  error_family?: string;
+  severity?: "fatal" | "error" | "warning" | "info" | string;
+  title?: string;
+  message?: string;
+  expected?: unknown;
+  actual?: unknown;
+  component_ref?: unknown;
+  component_actual?: unknown;
+  evidence_refs?: unknown[];
+  suggested_action?: string;
+};
+
+export type ComparisonReport = {
+  version?: string;
+  summary?: {
+    comparison_mode?: string;
+    logic_correct?: boolean;
+    similarity?: number;
+    reference_id?: string;
+    reference_name?: string;
+    total_item_count?: number;
+  };
+  items?: ComparisonReportItem[];
 };
 
 export type StageData = {

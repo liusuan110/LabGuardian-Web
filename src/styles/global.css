@@ -2613,6 +2613,32 @@ h2 {
   font-size: 10.5px;
 }
 
+/* ===== Manual correction actions ===== */
+.manual-correction-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.correction-compare-button {
+  width: 100%;
+}
+
+.run-button.correction-compare-button {
+  min-height: 42px;
+  font-size: 13px;
+}
+
+.manual-correction-actions .muted {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* ===== Stage timeline running state ===== */
 .stage-item.active {
   color: var(--accent, #1976d2);
@@ -2622,4 +2648,329 @@ h2 {
 
 .stage-item.active strong {
   color: var(--accent, #1976d2);
+}
+
+/* ===== Reference panel & logical graph styles ===== */
+.left-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.reference-panel {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.reference-panel select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  color: var(--ink);
+}
+
+.reference-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.reference-card strong {
+  font-size: 13px;
+}
+
+.reference-card span,
+.reference-card p,
+.reference-card code {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reference-card code {
+  overflow-wrap: anywhere;
+}
+
+.logic-compare-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.logic-compare-card.correct {
+  border-color: #a9d8ce;
+  background: #e9f7f4;
+}
+
+.logic-compare-card.incorrect {
+  border-color: #e6a1ad;
+  background: #fff1f3;
+}
+
+.diagnostic-item-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.diagnostic-item-card.severity-error {
+  border-color: #e6a1ad;
+  background: #fff5f7;
+}
+
+.diagnostic-item-card.severity-warning {
+  border-color: #e1b36b;
+  background: #fffaf0;
+}
+
+.diagnostic-item-card .code-tag {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.severity-group {
+  display: grid;
+  gap: 8px;
+}
+
+.severity-heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent-dark);
+}
+
+.expected-actual {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.expected-actual summary {
+  padding: 8px 10px;
+  color: var(--accent-dark);
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.expected-actual pre {
+  width: 100%;
+  max-width: 100%;
+  max-height: 200px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ===== Comparison report styles ===== */
+.comparison-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.comparison-summary-card.correct {
+  border-color: #a9d8ce;
+  background: #e9f7f4;
+}
+
+.comparison-summary-card.incorrect {
+  border-color: #e6a1ad;
+  background: #fff1f3;
+}
+
+.comparison-summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.comparison-summary-status {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.comparison-summary-similarity {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.comparison-summary-ref {
+  margin: 0;
+  color: var(--subtle);
+  font-size: 12px;
+}
+
+.comparison-summary-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.comparison-diff-list {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-diff-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.comparison-diff-card.severity-error {
+  border-color: #e6a1ad;
+  background: #fff5f7;
+}
+
+.comparison-diff-card.severity-warning {
+  border-color: #e1b36b;
+  background: #fffaf0;
+}
+
+.comparison-diff-card.severity-info {
+  border-color: #b8dbd4;
+  background: #f0f9f7;
+}
+
+.comparison-diff-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.comparison-diff-title {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.comparison-diff-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.comparison-diff-badge.severity-error {
+  background: #fff1f3;
+  color: #be3144;
+}
+
+.comparison-diff-badge.severity-warning {
+  background: #fff7e8;
+  color: #b7791f;
+}
+
+.comparison-diff-badge.severity-info {
+  background: #e9f7f4;
+  color: #14796b;
+}
+
+.comparison-diff-code {
+  color: var(--subtle);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.comparison-diff-message {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.comparison-diff-suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.comparison-diff-details {
+  display: grid;
+  gap: 6px;
+}
+
+.json-detail {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f6f9f8;
+}
+
+.json-detail summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  color: var(--accent-dark);
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.json-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.json-detail pre {
+  width: 100%;
+  max-width: 100%;
+  max-height: 240px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.5;
 }

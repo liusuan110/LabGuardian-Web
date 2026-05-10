@@ -4,15 +4,20 @@ import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } f
 type Props = {
   pipeline: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   agent: AgentStatusResponse | null;
+  selectedReferenceId?: string | null;
   runtimeMetadata: Record<string, unknown> | null;
 };
 
-export function RawJsonPanel({ pipeline, agent, runtimeMetadata }: Props) {
+export function RawJsonPanel({ pipeline, agent, selectedReferenceId, runtimeMetadata }: Props) {
   const hasRuntimeMetadata = pipeline && "runtime_metadata" in pipeline;
   const metadata = runtimeMetadata ?? (hasRuntimeMetadata ? pipeline.runtime_metadata : {});
 
   return (
     <section className="raw-panel">
+      <details>
+        <summary>Reference</summary>
+        <pre>{JSON.stringify({ selectedReferenceId }, null, 2)}</pre>
+      </details>
       <details open>
         <summary>runtime_metadata</summary>
         <pre>{JSON.stringify(metadata, null, 2)}</pre>

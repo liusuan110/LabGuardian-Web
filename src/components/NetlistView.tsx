@@ -8,6 +8,7 @@ type Props = {
   onResetCorrections: () => void;
   onApplyCorrections: () => void;
   isApplyingCorrections?: boolean;
+  selectedReferenceId?: string | null;
 };
 
 /**
@@ -21,6 +22,7 @@ export function NetlistView({
   onResetCorrections,
   onApplyCorrections,
   isApplyingCorrections,
+  selectedReferenceId,
 }: Props) {
   return (
     <BreadboardView
@@ -30,6 +32,7 @@ export function NetlistView({
       onResetCorrections={onResetCorrections}
       onApplyCorrections={onApplyCorrections}
       isApplyingCorrections={isApplyingCorrections}
+      selectedReferenceId={selectedReferenceId}
     />
   );
 }

@@ -23,6 +23,7 @@ type Props = {
   onResetCorrections: () => void;
   onApplyCorrections: () => void;
   isApplyingCorrections?: boolean;
+  selectedReferenceId?: string | null;
 };
 
 // SVG 几何参数
@@ -172,6 +173,7 @@ export function BreadboardView({
   onResetCorrections,
   onApplyCorrections,
   isApplyingCorrections = false,
+  selectedReferenceId = null,
 }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
@@ -405,17 +407,6 @@ export function BreadboardView({
           {usedNetIds.length} nets · {Array.from(model.holes.values()).reduce((sum, l) => sum + l.length, 0)} pins
           {corrections.size > 0 ? (
             <>
-              {" "}
-              ·{" "}
-              <button
-                type="button"
-                className="bb-apply-btn"
-                onClick={onApplyCorrections}
-                disabled={isApplyingCorrections}
-                title="将手工修正提交给后端并重算 topology / validate / semantic analysis"
-              >
-                {isApplyingCorrections ? "正在重算..." : "应用修正并重算拓扑"}
-              </button>
               {" "}
               ·{" "}
               <button
@@ -1049,6 +1040,36 @@ export function BreadboardView({
           ) : null}
         </div>
       ) : null}
+
+      {/* 手动修正提交区域 */}
+      <div className="manual-correction-actions">
+        <button
+          type="button"
+          className="run-button correction-compare-button"
+          onClick={onApplyCorrections}
+          disabled={corrections.size === 0 || isApplyingCorrections}
+          title={
+            selectedReferenceId
+              ? "将手工修正提交给后端，重算拓扑并与参考电路比较"
+              : "将手工修正提交给后端并重算拓扑"
+          }
+        >
+          {isApplyingCorrections
+            ? "正在重算..."
+            : selectedReferenceId
+              ? "确认修正并与参考电路比较"
+              : "确认修正并重算网表"}
+        </button>
+        {selectedReferenceId ? (
+          <p className="muted">
+            将使用修正后的连接结果与当前参考电路进行逻辑拓扑比较。
+          </p>
+        ) : (
+          <p className="muted">
+            当前未选择参考电路，点击后只会更新修正后的网表和基础诊断，不做参考比较。
+          </p>
+        )}
+      </div>
 
       {/* 图例 / net 索引 */}
       <div className="bb-legend">

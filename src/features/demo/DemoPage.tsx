@@ -6,6 +6,7 @@ import { MetricStrip } from "../../components/MetricStrip";
 import { ModeTabs } from "../../components/ModeTabs";
 import { NetlistView } from "../../components/NetlistView";
 import { RawJsonPanel } from "../../components/RawJsonPanel";
+import { ReferenceSelector } from "../../components/ReferenceSelector";
 import { ResultCanvas } from "../../components/ResultCanvas";
 import { StageTimeline } from "../../components/StageTimeline";
 import { UploadPanel } from "../../components/UploadPanel";
@@ -18,10 +19,12 @@ import { demoReducer, initialDemoState } from "./demoReducer";
 import { useAgentChat } from "./useAgentChat";
 import { useBackendStatus } from "./useBackendStatus";
 import { usePipelineRun } from "./usePipelineRun";
+import { useReferences } from "./useReferences";
 
 export function DemoPage() {
   const [state, dispatch] = useReducer(demoReducer, initialDemoState);
   useBackendStatus(dispatch);
+  useReferences(dispatch);
   const { send } = useAgentChat(state, dispatch);
   const { execute } = usePipelineRun(state, dispatch, send);
 
@@ -57,6 +60,7 @@ export function DemoPage() {
         components,
         corrections,
         rail_assignments: state.rails,
+        reference_id: state.selectedReferenceId,
         reference_circuit: null,
       });
       dispatch({ type: "corrected-recompute-success", result: corrected });
@@ -82,19 +86,30 @@ export function DemoPage() {
       {state.error ? <div className="error-banner">{state.error}</div> : null}
 
       <section className="demo-grid">
-        <UploadPanel
-          file={state.file}
-          conf={state.conf}
-          iou={state.iou}
-          imgsz={state.imgsz}
-          rails={state.rails}
-          runState={state.runState}
-          activeStage={state.pipelineProgress.activeStage}
-          onFileSelected={handleFileSelected}
-          onOptionChange={(key, value) => dispatch({ type: "set-option", key, value })}
-          onRailChange={(key, value) => dispatch({ type: "set-rail", key, value })}
-          onRun={execute}
-        />
+        <div className="left-column">
+          <UploadPanel
+            file={state.file}
+            conf={state.conf}
+            iou={state.iou}
+            imgsz={state.imgsz}
+            rails={state.rails}
+            runState={state.runState}
+            activeStage={state.pipelineProgress.activeStage}
+            onFileSelected={handleFileSelected}
+            onOptionChange={(key, value) => dispatch({ type: "set-option", key, value })}
+            onRailChange={(key, value) => dispatch({ type: "set-rail", key, value })}
+            onRun={execute}
+          />
+          <ReferenceSelector
+            references={state.references}
+            selectedReferenceId={state.selectedReferenceId}
+            status={state.referenceStatus}
+            error={state.referenceError}
+            onChange={(referenceId) =>
+              dispatch({ type: "select-reference", referenceId })
+            }
+          />
+        </div>
 
         <section className="main-stage">
           <div className="stage-header">
@@ -113,6 +128,7 @@ export function DemoPage() {
               onResetCorrections={() => dispatch({ type: "reset-manual-corrections" })}
               onApplyCorrections={handleApplyCorrections}
               isApplyingCorrections={state.runState === "running"}
+              selectedReferenceId={state.selectedReferenceId}
             />
           ) : (
             <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />
@@ -138,6 +154,7 @@ export function DemoPage() {
         <RawJsonPanel
           pipeline={state.pipelineResult}
           agent={state.agentResult}
+          selectedReferenceId={state.selectedReferenceId}
           runtimeMetadata={state.pipelineResult && "runtime_metadata" in state.pipelineResult ? state.pipelineResult.runtime_metadata : null}
         />
       </section>
