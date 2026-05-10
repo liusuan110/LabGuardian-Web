@@ -361,6 +361,28 @@ h2 {
   background-size: 24px 24px;
 }
 
+.canvas-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.canvas-toggle-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.canvas-toggle-btn:hover {
+  background: #eef8f5;
+  border-color: #b8dbd4;
+}
+
 .result-canvas {
   display: block;
   height: auto;
@@ -459,6 +481,47 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcfc;
+}
+
+.diagnostic-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.diagnostic-item.severity-error {
+  border-color: #e6a1ad;
+  background: #fff5f7;
+}
+
+.diagnostic-item.severity-warning {
+  border-color: #e1b36b;
+  background: #fffaf0;
+}
+
+.diagnostic-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.diagnostic-item-head strong {
+  color: var(--accent-dark);
+  font-size: 12px;
+}
+
+.diagnostic-item-head span {
+  color: var(--muted);
+}
+
+.diagnostic-item-meta {
+  font-size: 12px;
+  color: var(--subtle);
 }
 
 .error-text,

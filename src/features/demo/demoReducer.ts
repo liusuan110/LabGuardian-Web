@@ -69,8 +69,8 @@ export const initialDemoState: DemoState = {
   imgsz: 960,
   rails: {
     top_plus: "VCC",
-    top_minus: "GND",
-    bot_plus: "VCC",
+    top_minus: "VCC",
+    bot_plus: "GND",
     bot_minus: "GND",
   },
   activeMode: "detect",

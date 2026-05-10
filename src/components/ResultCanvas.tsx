@@ -60,10 +60,15 @@ function drawPin(
   ctx.restore();
 }
 
-function drawComponents(ctx: CanvasRenderingContext2D, components: PipelineComponent[], mode: CanvasMode) {
+function drawComponents(
+  ctx: CanvasRenderingContext2D,
+  components: PipelineComponent[],
+  mode: CanvasMode,
+  showComponentBoxes: boolean,
+) {
   components.forEach((component, componentIndex) => {
     const color = ["#14796b", "#2563eb", "#b45309", "#7c3aed"][componentIndex % 4];
-    if (component.bbox) {
+    if (showComponentBoxes && component.bbox) {
       drawBox(
         ctx,
         component.bbox,
@@ -144,6 +149,7 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
 export function ResultCanvas({ imageUrl, result, mode }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [showPinModeBoxes, setShowPinModeBoxes] = useState(true);
 
   useEffect(() => {
     if (!imageUrl) {
@@ -179,13 +185,13 @@ export function ResultCanvas({ imageUrl, result, mode }: Props) {
     }
 
     if (mode === "pins") {
-      drawComponents(ctx, getPinComponents(result), mode);
+      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes);
     }
 
     if (mode === "mapping") {
-      drawComponents(ctx, getMappedComponents(result), mode);
+      drawComponents(ctx, getMappedComponents(result), mode, true);
     }
-  }, [image, mode, result]);
+  }, [image, mode, result, showPinModeBoxes]);
 
   if (mode === "mapping") {
     if (!result || !("stages" in result)) {
@@ -198,5 +204,20 @@ export function ResultCanvas({ imageUrl, result, mode }: Props) {
     return <div className="empty-stage">上传图片后显示检测框、引脚点。</div>;
   }
 
-  return <canvas ref={canvasRef} className="result-canvas" />;
+  return (
+    <>
+      {mode === "pins" ? (
+        <div className="canvas-tools">
+          <button
+            type="button"
+            className="canvas-toggle-btn"
+            onClick={() => setShowPinModeBoxes((current) => !current)}
+          >
+            {showPinModeBoxes ? "只看引脚" : "显示元件框"}
+          </button>
+        </div>
+      ) : null}
+      <canvas ref={canvasRef} className="result-canvas" />
+    </>
+  );
 }
