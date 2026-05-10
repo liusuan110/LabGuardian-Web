@@ -5,7 +5,8 @@ export type PipelineStageName =
   | "pin_detect"
   | "mapping"
   | "topology"
-  | "validate";
+  | "validate"
+  | "semantic_analysis";
 
 export type RiskLevel = "safe" | "warning" | "danger" | string;
 
@@ -24,6 +25,23 @@ export type PipelineRequest = {
   imgsz: number;
   reference_circuit?: Record<string, unknown> | null;
   rail_assignments?: RailAssignments;
+};
+
+export type ManualCorrectionPatch = {
+  component_id: string;
+  pin_name: string;
+  from_hole_id: string;
+  to_hole_id: string;
+  source: "manual_drag";
+};
+
+export type CorrectedRecomputeRequest = {
+  station_id: string;
+  job_id?: string | null;
+  components: PipelineComponent[];
+  corrections: ManualCorrectionPatch[];
+  rail_assignments?: RailAssignments;
+  reference_circuit?: Record<string, unknown> | null;
 };
 
 export type Detection = {
@@ -97,6 +115,12 @@ export type StageData = {
   comparison_report?: Record<string, unknown>;
   risk_reasons?: string[];
   details?: Record<string, unknown>;
+  circuit_type_guess?: Record<string, unknown>;
+  recognized_roles?: Record<string, unknown>;
+  matched_template?: Record<string, unknown>;
+  wiring_errors?: Array<Record<string, unknown>>;
+  suggested_pin_moves?: Array<Record<string, unknown>>;
+  student_hint?: string;
   [key: string]: unknown;
 };
 

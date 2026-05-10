@@ -2167,6 +2167,30 @@ h2 {
   font-family: inherit;
 }
 
+.bb-apply-btn {
+  appearance: none;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.bb-apply-btn:hover:not(:disabled) {
+  background: #d1fae5;
+  border-color: #10b981;
+}
+
+.bb-apply-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .bb-reset-btn:hover {
   background: #fef3c7;
   border-color: #f59e0b;

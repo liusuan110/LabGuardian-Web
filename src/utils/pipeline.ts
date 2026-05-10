@@ -15,6 +15,7 @@ const STAGE_LABELS: Record<PipelineStageName, string> = {
   mapping: "S2 孔位映射",
   topology: "S3 网表拓扑",
   validate: "S4 风险校验",
+  semantic_analysis: "S5 语义纠错",
 };
 
 export function stageLabel(stage: PipelineStageName) {

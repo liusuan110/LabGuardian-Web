@@ -9,7 +9,11 @@ import { RawJsonPanel } from "../../components/RawJsonPanel";
 import { ResultCanvas } from "../../components/ResultCanvas";
 import { StageTimeline } from "../../components/StageTimeline";
 import { UploadPanel } from "../../components/UploadPanel";
+import { recomputeCorrected } from "../../api/pipeline";
+import { buildCorrectionPatch } from "../../utils/breadboard";
 import { fileToBase64 } from "../../utils/file";
+import { getStageData } from "../../utils/pipeline";
+import type { PipelineComponent, PipelineResult } from "../../types/pipeline";
 import { demoReducer, initialDemoState } from "./demoReducer";
 import { useAgentChat } from "./useAgentChat";
 import { useBackendStatus } from "./useBackendStatus";
@@ -30,6 +34,38 @@ export function DemoPage() {
     const imageUrl = URL.createObjectURL(file);
     const base64 = await fileToBase64(file);
     dispatch({ type: "select-file", file, imageUrl, base64 });
+  }
+
+  async function handleApplyCorrections() {
+    const result = state.pipelineResult;
+    if (!result || !("stages" in result) || state.manualCorrections.size === 0 || state.runState === "running") {
+      return;
+    }
+
+    const components = (getStageData(result, "mapping").components ?? []) as PipelineComponent[];
+    const corrections = buildCorrectionPatch(result, state.manualCorrections);
+    if (components.length === 0 || corrections.length === 0) {
+      dispatch({ type: "run-error", error: "没有可提交的手动修正或 mapping components。" });
+      return;
+    }
+
+    dispatch({ type: "corrected-recompute-start" });
+    try {
+      const corrected: PipelineResult = await recomputeCorrected({
+        station_id: state.stationId,
+        job_id: result.job_id,
+        components,
+        corrections,
+        rail_assignments: state.rails,
+        reference_circuit: null,
+      });
+      dispatch({ type: "corrected-recompute-success", result: corrected });
+    } catch (error) {
+      dispatch({
+        type: "run-error",
+        error: error instanceof Error ? error.message : "修正网表重算失败",
+      });
+    }
   }
 
   return (
@@ -75,6 +111,8 @@ export function DemoPage() {
               corrections={state.manualCorrections}
               onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
               onResetCorrections={() => dispatch({ type: "reset-manual-corrections" })}
+              onApplyCorrections={handleApplyCorrections}
+              isApplyingCorrections={state.runState === "running"}
             />
           ) : (
             <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />

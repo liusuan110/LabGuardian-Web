@@ -4,7 +4,7 @@ import type { PipelineProgress } from "../features/demo/demoReducer";
 import type { RunState } from "../types/ui";
 import { formatDuration, getStage, stageLabel } from "../utils/pipeline";
 
-const order: PipelineStageName[] = ["detect", "pin_detect", "mapping", "topology", "validate"];
+const order: PipelineStageName[] = ["detect", "pin_detect", "mapping", "topology", "validate", "semantic_analysis"];
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;

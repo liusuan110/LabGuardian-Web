@@ -41,6 +41,8 @@ export type DemoAction =
   | { type: "set-manual-corrections"; corrections: Map<string, string> }
   | { type: "reset-manual-corrections" }
   | { type: "run-start" }
+  | { type: "corrected-recompute-start" }
+  | { type: "corrected-recompute-success"; result: PipelineResult }
   | { type: "run-success"; result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult }
   | { type: "run-error"; error: string }
   | { type: "agent-start"; prompt: string; placeholderId: string }
@@ -134,6 +136,26 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentResult: null,
         pipelineProgress: { activeStage: null, completedStages: [] },
       };
+    case "corrected-recompute-start":
+      return {
+        ...state,
+        runState: "running",
+        error: "",
+        pipelineProgress: { activeStage: "topology", completedStages: ["detect", "pin_detect", "mapping"] },
+      };
+    case "corrected-recompute-success":
+      return {
+        ...state,
+        runState: "success",
+        pipelineResult: action.result,
+        manualCorrections: new Map(),
+        agentResult: null,
+        agentError: "",
+        pipelineProgress: {
+          activeStage: null,
+          completedStages: ["detect", "pin_detect", "mapping", "topology", "validate", "semantic_analysis"],
+        },
+      };
     case "run-success":
       return {
         ...state,
@@ -144,7 +166,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentError: "",
         pipelineProgress: {
           activeStage: null,
-          completedStages: ["detect", "pin_detect", "mapping", "topology", "validate"],
+          completedStages: ["detect", "pin_detect", "mapping", "topology", "validate", "semantic_analysis"],
         },
       };
     case "pipeline-progress-tick":

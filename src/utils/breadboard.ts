@@ -133,6 +133,17 @@ export function holeAddrToDisplayId(addr: HoleAddr): string {
   return `${half}${railSign}${addr.col}`;
 }
 
+export function holeAddrToBackendId(addr: HoleAddr): string {
+  if (addr.kind === "matrix") return `${addr.letter}${addr.row}`;
+  const railMap: Record<RailKind, string> = {
+    top_plus: "LP",
+    top_minus: "LN",
+    bot_plus: "RP",
+    bot_minus: "RN",
+  };
+  return `${railMap[addr.rail]}${addr.col}`;
+}
+
 /** 唯一标识一根 pin (跨结果稳定的 key) */
 export function pinKeyOf(componentId: string, pinName: string): string {
   return `${componentId}::${pinName}`;
@@ -480,7 +491,7 @@ export function buildCorrectionPatch(
         component_id: original.componentId,
         pin_name: original.pinName,
         from_hole_id: original.holeId,
-        to_hole_id: holeAddrToDisplayId(correctedAddr),
+        to_hole_id: holeAddrToBackendId(correctedAddr),
         source: "manual_drag" as const,
       },
     ];

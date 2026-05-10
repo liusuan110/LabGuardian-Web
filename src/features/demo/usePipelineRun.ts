@@ -8,6 +8,7 @@ const STAGE_RHYTHM: Array<{ stage: PipelineStageName; durationMs: number }> = [
   { stage: "mapping", durationMs: 1000 },
   { stage: "topology", durationMs: 800 },
   { stage: "validate", durationMs: 600 },
+  { stage: "semantic_analysis", durationMs: 400 },
 ];
 
 function startStageProgressTimers(dispatch: React.Dispatch<DemoAction>): () => void {

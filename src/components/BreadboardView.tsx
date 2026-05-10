@@ -21,6 +21,8 @@ type Props = {
   corrections: Map<string, string>;
   onCorrectionChange: (corrections: Map<string, string>) => void;
   onResetCorrections: () => void;
+  onApplyCorrections: () => void;
+  isApplyingCorrections?: boolean;
 };
 
 // SVG 几何参数
@@ -163,7 +165,14 @@ function buildRoutePath(points: Point[], busY: number) {
   const branches = points.map((p) => `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} V ${busY.toFixed(1)}`);
   return [`M ${minX.toFixed(1)} ${busY.toFixed(1)} H ${maxX.toFixed(1)}`, ...branches].join(" ");
 }
-export function BreadboardView({ result, corrections, onCorrectionChange, onResetCorrections }: Props) {
+export function BreadboardView({
+  result,
+  corrections,
+  onCorrectionChange,
+  onResetCorrections,
+  onApplyCorrections,
+  isApplyingCorrections = false,
+}: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
   const [hoverNet, setHoverNet] = useState<string | null>(null);
@@ -396,6 +405,17 @@ export function BreadboardView({ result, corrections, onCorrectionChange, onRese
           {usedNetIds.length} nets · {Array.from(model.holes.values()).reduce((sum, l) => sum + l.length, 0)} pins
           {corrections.size > 0 ? (
             <>
+              {" "}
+              ·{" "}
+              <button
+                type="button"
+                className="bb-apply-btn"
+                onClick={onApplyCorrections}
+                disabled={isApplyingCorrections}
+                title="将手工修正提交给后端并重算 topology / validate / semantic analysis"
+              >
+                {isApplyingCorrections ? "正在重算..." : "应用修正并重算拓扑"}
+              </button>
               {" "}
               ·{" "}
               <button

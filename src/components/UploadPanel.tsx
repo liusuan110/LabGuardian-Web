@@ -10,6 +10,7 @@ const STAGE_RUN_LABEL: Record<PipelineStageName, string> = {
   mapping: "正在映射孔位...",
   topology: "正在构建网表...",
   validate: "正在校验风险...",
+  semantic_analysis: "正在分析电路语义...",
 };
 
 type Props = {
