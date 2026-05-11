@@ -35,6 +35,7 @@ export type DemoState = {
   selectedReferenceId: string | null;
   referenceStatus: "idle" | "loading" | "success" | "error";
   referenceError: string;
+  selectedDiagnosticIndex: number | null;
 };
 
 export type DemoAction =
@@ -63,7 +64,9 @@ export type DemoAction =
   | { type: "references-loading" }
   | { type: "references-success"; references: ReferenceSummary[] }
   | { type: "references-error"; error: string }
-  | { type: "select-reference"; referenceId: string | null };
+  | { type: "select-reference"; referenceId: string | null }
+  | { type: "select-diagnostic"; index: number | null }
+  | { type: "clear-selected-diagnostic" };
 
 export const initialDemoState: DemoState = {
   stationId: "LG-DEMO-01",
@@ -97,6 +100,7 @@ export const initialDemoState: DemoState = {
   selectedReferenceId: null,
   referenceStatus: "idle",
   referenceError: "",
+  selectedDiagnosticIndex: null,
 };
 
 const PROGRESS_PHASE_TEXT: Record<AgentProgressPhase, string> = {
@@ -130,6 +134,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         agentStatus: "idle",
         chatMessages: [],
         pipelineProgress: { activeStage: null, completedStages: [] },
+        selectedDiagnosticIndex: null,
       };
     case "set-option":
       return { ...state, [action.key]: action.value };
@@ -164,6 +169,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         chatMessages: [],
         agentResult: null,
         pipelineProgress: { activeStage: null, completedStages: [] },
+        selectedDiagnosticIndex: null,
       };
     case "corrected-recompute-start":
       return {
@@ -394,6 +400,10 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         ...state,
         selectedReferenceId: action.referenceId,
       };
+    case "select-diagnostic":
+      return { ...state, selectedDiagnosticIndex: action.index };
+    case "clear-selected-diagnostic":
+      return { ...state, selectedDiagnosticIndex: null };
     default:
       return state;
   }

@@ -14,12 +14,21 @@ import { recomputeCorrected } from "../../api/pipeline";
 import { buildCorrectionPatch } from "../../utils/breadboard";
 import { fileToBase64 } from "../../utils/file";
 import { getStageData } from "../../utils/pipeline";
-import type { PipelineComponent, PipelineResult } from "../../types/pipeline";
+import type { PipelineComponent, PipelineResult, EvidenceRef, ComparisonReport } from "../../types/pipeline";
 import { demoReducer, initialDemoState } from "./demoReducer";
 import { useAgentChat } from "./useAgentChat";
 import { useBackendStatus } from "./useBackendStatus";
 import { usePipelineRun } from "./usePipelineRun";
 import { useReferences } from "./useReferences";
+
+function parseComparisonReport(result: unknown): ComparisonReport | null {
+  if (!result || typeof result !== "object") return null;
+  const r = result as Record<string, unknown>;
+  if (!("comparison_report" in r)) return null;
+  const cr = r.comparison_report;
+  if (!cr || typeof cr !== "object") return null;
+  return cr as ComparisonReport;
+}
 
 export function DemoPage() {
   const [state, dispatch] = useReducer(demoReducer, initialDemoState);
@@ -27,6 +36,19 @@ export function DemoPage() {
   useReferences(dispatch);
   const { send } = useAgentChat(state, dispatch);
   const { execute } = usePipelineRun(state, dispatch, send);
+
+  const cr = parseComparisonReport(state.pipelineResult);
+  const rawItems = cr?.items ?? [];
+  const comparisonItems = rawItems.filter((item) => {
+    const code = String(item.error_code ?? "");
+    if (code === "HOLE_MISMATCH") return false;
+    if (code === "POLARITY_REVERSED" || code === "POLARITY_UNKNOWN") return false;
+    return true;
+  });
+  const highlightTargets: EvidenceRef[] =
+    state.selectedDiagnosticIndex != null
+      ? (comparisonItems[state.selectedDiagnosticIndex]?.evidence_refs ?? [])
+      : [];
 
   async function handleFileSelected(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -145,14 +167,19 @@ export function DemoPage() {
                   dispatch({ type: "set-manual-net-role", key, assignment })
                 }
                 onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
+                highlightTargets={highlightTargets}
               />
             ) : (
-              <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} />
+              <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} highlightTargets={highlightTargets} />
             )}
           </div>
         </section>
 
-        <DiagnosticsPanel result={state.pipelineResult} />
+        <DiagnosticsPanel
+          result={state.pipelineResult}
+          selectedDiagnosticIndex={state.selectedDiagnosticIndex}
+          onSelectDiagnostic={(index) => dispatch({ type: "select-diagnostic", index })}
+        />
       </section>
 
       <AgentChat

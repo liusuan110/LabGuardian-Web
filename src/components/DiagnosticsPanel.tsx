@@ -5,11 +5,14 @@ import type {
   PortVisualizationResult,
   ComparisonReport,
   ComparisonReportItem,
+  EvidenceRef,
 } from "../types/pipeline";
 import { asPercent } from "../utils/pipeline";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
+  selectedDiagnosticIndex?: number | null;
+  onSelectDiagnostic?: (index: number | null) => void;
 };
 
 const ERROR_LABELS: Record<string, string> = {
@@ -26,6 +29,23 @@ const ERROR_LABELS: Record<string, string> = {
   GROUND_NODE_MISMATCH: "地节点错误",
   ROLE_TARGET_NOT_CONNECTED: "标记位置未连接",
 };
+
+const POLARITY_CODES = new Set(["POLARITY_REVERSED", "POLARITY_UNKNOWN"]);
+
+function formatEvidenceRef(ref: EvidenceRef): string {
+  switch (ref.type) {
+    case "component":
+      return `元件 ${ref.component_id}`;
+    case "pin":
+      return `引脚 ${ref.component_id}.${ref.pin_name}${ref.hole_id ? `@${ref.hole_id}` : ""}`;
+    case "net":
+      return `网络 ${ref.electrical_net_id}`;
+    case "reference_component":
+      return `参考元件 ${ref.component_id}`;
+    default:
+      return "";
+  }
+}
 
 const SEVERITY_ORDER: Record<string, number> = {
   fatal: 0,
@@ -86,7 +106,17 @@ function JsonDetail({ label, data }: { label: string; data: unknown }) {
   );
 }
 
-function ComparisonDiffCard({ item, index }: { item: ComparisonReportItem; index: number }) {
+function ComparisonDiffCard({
+  item,
+  index,
+  isSelected,
+  onClick,
+}: {
+  item: ComparisonReportItem;
+  index: number;
+  isSelected?: boolean;
+  onClick?: () => void;
+}) {
   const code = item.error_code ?? "UNKNOWN";
   const label = item.title ?? ERROR_LABELS[code] ?? code;
   const sev = String(item.severity ?? "warning");
@@ -95,7 +125,15 @@ function ComparisonDiffCard({ item, index }: { item: ComparisonReportItem; index
   const actualInfo = formatComponentInfo(item.component_actual);
 
   return (
-    <article className={`comparison-diff-card ${severityClass(sev)}`}>
+    <article
+      className={`comparison-diff-card ${severityClass(sev)}${isSelected ? " selected" : ""}`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick?.();
+      }}
+    >
       <div className="comparison-diff-head">
         <strong className="comparison-diff-title">{label}</strong>
         <span className={`comparison-diff-badge ${severityClass(sev)}`}>{severityLabel(sev)}</span>
@@ -115,16 +153,22 @@ function ComparisonDiffCard({ item, index }: { item: ComparisonReportItem; index
           {actualInfo ? <span className="mapping-actual">当前元件 {actualInfo}</span> : null}
         </p>
       ) : null}
+      {item.evidence_refs && item.evidence_refs.length > 0 ? (
+        <p className="comparison-diff-evidence">
+          {item.evidence_refs.map((ref, i) => (
+            <span key={i} className="evidence-tag">{formatEvidenceRef(ref)}</span>
+          ))}
+        </p>
+      ) : null}
       <div className="comparison-diff-details">
         <JsonDetail label="期望连接关系 (expected)" data={item.expected} />
         <JsonDetail label="实际连接关系 (actual)" data={item.actual} />
-        <JsonDetail label="证据 (evidence_refs)" data={item.evidence_refs} />
       </div>
     </article>
   );
 }
 
-export function DiagnosticsPanel({ result }: Props) {
+export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiagnostic }: Props) {
   const hasPipelineFields = result && "risk_level" in result;
   const diagnostics = hasPipelineFields && "diagnostics" in result ? (Array.isArray(result.diagnostics) ? result.diagnostics : []) : [];
   const riskReasons = hasPipelineFields && "risk_reasons" in result ? (Array.isArray(result.risk_reasons) ? result.risk_reasons : []) : [];
@@ -139,14 +183,16 @@ export function DiagnosticsPanel({ result }: Props) {
   const referenceName = summary?.reference_name;
   const totalItemCount = typeof summary?.total_item_count === "number" ? summary.total_item_count : items.length;
 
-  const summaryRecord = summary as Record<string, unknown> | undefined;
-  const ignoreComponentId = summaryRecord?.ignore_component_id === true;
-  const ignoreHoleId = summaryRecord?.ignore_hole_id === true;
-  const ignorePassivePinOrder = summaryRecord?.ignore_passive_pin_order === true;
+  const ignoreComponentId = summary?.ignore_component_id === true;
+  const ignoreHoleId = summary?.ignore_hole_id === true;
+  const ignorePassivePinOrder = summary?.ignore_passive_pin_order === true;
+  const ignorePolarity = summary?.ignore_polarity === true;
 
   const filteredItems = items.filter((item) => {
     const code = String(item.error_code ?? "");
-    return code !== "HOLE_MISMATCH";
+    if (code === "HOLE_MISMATCH") return false;
+    if (POLARITY_CODES.has(code)) return false;
+    return true;
   });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -197,13 +243,17 @@ export function DiagnosticsPanel({ result }: Props) {
           <p className="comparison-summary-hint">
             元件编号和具体孔位可以不同；系统按元件类型、网络连接关系和输入/输出/电源/地角色判断。
           </p>
-          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder) ? (
+          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder || ignorePolarity) ? (
             <div className="comparison-ignore-badges">
               {ignoreComponentId ? <span className="ignore-badge">忽略元件编号</span> : null}
               {ignoreHoleId ? <span className="ignore-badge">忽略具体孔位</span> : null}
               {ignorePassivePinOrder ? <span className="ignore-badge">无极性两脚元件允许引脚互换</span> : null}
+              {ignorePolarity ? <span className="ignore-badge">忽略极性</span> : null}
             </div>
           ) : null}
+          <p className="comparison-summary-hint">
+            当前版本默认元件极性正确，不进行极性错误判断。
+          </p>
           {logicCorrect && filteredItems.length === 0 ? (
             <p className="comparison-summary-hint">
               {totalItemCount === 0
@@ -224,8 +274,14 @@ export function DiagnosticsPanel({ result }: Props) {
         <section className="side-section">
           <h2>与参考电路的差异</h2>
           <div className="comparison-diff-list">
-            {sortedItems.map((item, index) => (
-              <ComparisonDiffCard key={`${item.error_code ?? "item"}-${index}`} item={item} index={index} />
+            {sortedItems.map((item, idx) => (
+              <ComparisonDiffCard
+                key={`${item.error_code ?? "item"}-${idx}`}
+                item={item}
+                index={idx}
+                isSelected={selectedDiagnosticIndex === idx}
+                onClick={() => onSelectDiagnostic?.(idx)}
+              />
             ))}
           </div>
         </section>

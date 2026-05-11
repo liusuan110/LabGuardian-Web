@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, ManualNetRole } from "../types/pipeline";
+import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, ManualNetRole, EvidenceRef } from "../types/pipeline";
 import {
   ALL_STRIPS,
   BREADBOARD_COLS,
@@ -27,6 +27,7 @@ type Props = {
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
+  highlightTargets?: EvidenceRef[];
 };
 
 // SVG 几何参数
@@ -180,6 +181,7 @@ export function BreadboardView({
   netRoleAssignments = new Map(),
   onNetRoleChange,
   onResetNetRoles,
+  highlightTargets = [],
 }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
@@ -188,6 +190,35 @@ export function BreadboardView({
   const activeNet = hoverNet ?? selectedNet;
   const [drag, setDrag] = useState<DragState | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const highlightSets = useMemo(() => {
+    const compIds = new Set<string>();
+    const holeIds = new Set<string>();
+    const netIds = new Set<string>();
+    for (const t of highlightTargets) {
+      switch (t.type) {
+        case "component":
+          compIds.add(t.component_id);
+          break;
+        case "pin":
+          compIds.add(t.component_id);
+          if (t.hole_id) holeIds.add(t.hole_id);
+          break;
+        case "net":
+          for (const pins of model.holes.values()) {
+            for (const pin of pins) {
+              if (pin.electricalNetId === t.electrical_net_id) {
+                netIds.add(pin.netId);
+              }
+            }
+          }
+          break;
+        case "reference_component":
+          break;
+      }
+    }
+    return { compIds, holeIds, netIds };
+  }, [highlightTargets, model]);
 
   const usedNetIds = Array.from(model.netHoles.entries())
     .sort(([a], [b]) => {
@@ -530,28 +561,29 @@ export function BreadboardView({
               const color = getNetColor(usage.netId, usage.role);
               const isActive = activeNet === usage.netId;
               const isDim = activeNet !== null && !isActive;
+              const isHighlightedNet = highlightSets.netIds.has(usage.netId);
               return (
                 <g
                   key={`strip-${id}`}
-                  className="bb-strip used"
+                  className={`bb-strip used${isHighlightedNet ? " highlighted" : ""}`}
                   style={{ opacity: isDim ? 0.18 : 1 }}
-	                  onMouseEnter={(e) => {
-	                    const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-	                    const scale = svgRect.width / BOARD_WIDTH;
-	                    setHoverNet(usage.netId);
-	                    setHover({
-	                      x: svgRect.left + g.cx * scale + 8,
-	                      y: svgRect.top + g.cy * scale - 8,
+                  onMouseEnter={(e) => {
+                    const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+                    const scale = svgRect.width / BOARD_WIDTH;
+                    setHoverNet(usage.netId);
+                    setHover({
+                      x: svgRect.left + g.cx * scale + 8,
+                      y: svgRect.top + g.cy * scale - 8,
                       netId: usage.netId,
                       netRole: usage.role,
                       pins: usage.pins,
                     });
                   }}
-	                  onMouseLeave={() => {
-	                    setHover(null);
-	                    setHoverNet(null);
-	                  }}
-	                  onClick={() => setSelectedNet((cur) => (cur === usage.netId ? null : usage.netId))}
+                  onMouseLeave={() => {
+                    setHover(null);
+                    setHoverNet(null);
+                  }}
+                  onClick={() => setSelectedNet((cur) => (cur === usage.netId ? null : usage.netId))}
                 >
                   <rect
                     x={g.x}
@@ -561,10 +593,10 @@ export function BreadboardView({
                     rx={g.rx}
                     ry={g.rx}
                     fill={color}
-                    fillOpacity={isActive ? 0.28 : 0.16}
+                    fillOpacity={isActive ? 0.28 : isHighlightedNet ? 0.38 : 0.16}
                     stroke={color}
-                    strokeOpacity={isActive ? 0.85 : 0.55}
-                    strokeWidth={1.2}
+                    strokeOpacity={isActive ? 0.85 : isHighlightedNet ? 0.95 : 0.55}
+                    strokeWidth={isHighlightedNet ? 2.0 : 1.2}
                   />
                 </g>
               );
@@ -626,10 +658,11 @@ export function BreadboardView({
           {netRoutes.map((route) => {
             const isDim = activeNet !== null && activeNet !== route.netId;
             const isActive = activeNet === route.netId;
+            const isHighlightedNet = highlightSets.netIds.has(route.netId);
             return (
               <g
                 key={`netroute-${route.netId}`}
-                className={`bb-net-route ${isActive ? "active" : ""}`}
+                className={`bb-net-route ${isActive ? "active" : ""}${isHighlightedNet ? " highlighted" : ""}`}
                 style={{ opacity: isDim ? 0.12 : 1 }}
                 onMouseEnter={() => setHoverNet(route.netId)}
                 onMouseLeave={() => setHoverNet(null)}
@@ -641,8 +674,8 @@ export function BreadboardView({
                   className="bb-net-route-line"
                   d={route.d}
                   stroke={route.color}
-                  strokeWidth={isActive ? 3.1 : 2.3}
-                  strokeOpacity={isActive ? 0.98 : 0.82}
+                  strokeWidth={isActive ? 3.1 : isHighlightedNet ? 3.1 : 2.3}
+                  strokeOpacity={isActive ? 0.98 : isHighlightedNet ? 0.98 : 0.82}
                 />
                 {route.points.map((p, index) => (
                   <circle
@@ -785,18 +818,20 @@ export function BreadboardView({
             const isAmbiguous = pins.some((p) => p.isAmbiguous);
             const isCorrected = pins.some((p) => p.userCorrected);
             const dragPin = pins[0]; // 多 pin 同孔时拖第一根
+            const anyPinCompHighlighted = pins.some((p) => highlightSets.compIds.has(p.componentId));
+            const isHighlightedHole = highlightSets.holeIds.has(k) || anyPinCompHighlighted || highlightSets.netIds.has(netId);
             return (
               <g
                 key={`used-${k}`}
-                className={`bb-used${isAmbiguous ? " ambiguous" : ""}${isCorrected ? " corrected" : ""}`}
+                className={`bb-used${isAmbiguous ? " ambiguous" : ""}${isCorrected ? " corrected" : ""}${isHighlightedHole ? " highlighted" : ""}`}
                 style={{ opacity: isDim ? 0.18 : 1 }}
-	                onMouseEnter={(e) => {
-	                  const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
-	                  const scale = svgRect.width / BOARD_WIDTH;
-	                  setHoverNet(netId);
-	                  setHover({
-	                    x: svgRect.left + pos.x * scale + 8,
-	                    y: svgRect.top + pos.y * scale - 8,
+                onMouseEnter={(e) => {
+                  const svgRect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+                  const scale = svgRect.width / BOARD_WIDTH;
+                  setHoverNet(netId);
+                  setHover({
+                    x: svgRect.left + pos.x * scale + 8,
+                    y: svgRect.top + pos.y * scale - 8,
                     sourceHoleKey: k,
                     netId,
                     netRole: role,
@@ -821,9 +856,9 @@ export function BreadboardView({
                 <circle
                   cx={pos.x}
                   cy={pos.y}
-                  r={USED_GLOW}
+                  r={isHighlightedHole ? USED_GLOW + 4 : USED_GLOW}
                   fill={color}
-                  fillOpacity={isActive ? 0.32 : 0.18}
+                  fillOpacity={isActive ? 0.32 : isHighlightedHole ? 0.45 : 0.18}
                   className="bb-pulse"
                 />
                 {isAmbiguous ? (
@@ -854,8 +889,8 @@ export function BreadboardView({
                   cy={pos.y}
                   r={HOLE_R + 1}
                   fill={color}
-                  stroke={isCorrected ? "#10b981" : isAmbiguous ? "#f59e0b" : "#fff"}
-                  strokeWidth={isCorrected || isAmbiguous ? 1.8 : 1.4}
+                  stroke={isCorrected ? "#10b981" : isAmbiguous ? "#f59e0b" : isHighlightedHole ? "#be3144" : "#fff"}
+                  strokeWidth={isCorrected || isAmbiguous || isHighlightedHole ? 1.8 : 1.4}
                 />
               </g>
             );
@@ -993,15 +1028,16 @@ export function BreadboardView({
             const a = componentAnchor(cid);
             if (!a) return null;
             const compType = model.componentTypes.get(cid) ?? "";
+            const isHighlightedComp = highlightSets.compIds.has(cid);
             return (
-              <g key={`complabel-${cid}`} className="bb-component-label">
+              <g key={`complabel-${cid}`} className={`bb-component-label${isHighlightedComp ? " highlighted" : ""}`}>
                 <rect
                   x={a.x - 22}
                   y={a.y - 28}
                   width={44}
                   height={14}
                   rx={3}
-                  fill="#1f2937"
+                  fill={isHighlightedComp ? "#be3144" : "#1f2937"}
                   fillOpacity={0.78}
                 />
                 <text

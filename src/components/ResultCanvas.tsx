@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PipelineComponent, PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
+import type { PipelineComponent, PipelineResult, CircuitAnalysisResult, PortVisualizationResult, EvidenceRef } from "../types/pipeline";
 import type { CanvasMode } from "../types/ui";
 import { getDetections, getMappedComponents, getPinComponents, getStageData } from "../utils/pipeline";
 
@@ -7,6 +7,7 @@ type Props = {
   imageUrl: string;
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   mode: CanvasMode;
+  highlightTargets?: EvidenceRef[];
 };
 
 function drawLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) {
@@ -60,14 +61,43 @@ function drawPin(
   ctx.restore();
 }
 
+function isHighlighted(
+  componentId: string | undefined,
+  pinName: string | undefined,
+  holeId: string | undefined,
+  electricalNetId: string | undefined,
+  targets: EvidenceRef[],
+): boolean {
+  for (const t of targets) {
+    switch (t.type) {
+      case "component":
+        if (componentId && t.component_id === componentId) return true;
+        break;
+      case "pin":
+        if (componentId && t.component_id === componentId && (!t.pin_name || t.pin_name === pinName)) return true;
+        if (holeId && t.hole_id === holeId) return true;
+        break;
+      case "net":
+        if (electricalNetId && t.electrical_net_id === electricalNetId) return true;
+        break;
+      case "reference_component":
+        break;
+    }
+  }
+  return false;
+}
+
 function drawComponents(
   ctx: CanvasRenderingContext2D,
   components: PipelineComponent[],
   mode: CanvasMode,
   showComponentBoxes: boolean,
+  targets: EvidenceRef[],
 ) {
   components.forEach((component, componentIndex) => {
-    const color = ["#14796b", "#2563eb", "#b45309", "#7c3aed"][componentIndex % 4];
+    const baseColor = ["#14796b", "#2563eb", "#b45309", "#7c3aed"][componentIndex % 4];
+    const compHighlighted = isHighlighted(component.component_id, undefined, undefined, undefined, targets);
+    const color = compHighlighted ? "#be3144" : baseColor;
     if (showComponentBoxes && component.bbox) {
       drawBox(
         ctx,
@@ -80,7 +110,8 @@ function drawComponents(
       const point = topPoint(component, pinIndex);
       const suffix =
         mode === "mapping" ? ` ${pin.hole_id ?? "-"} ${pin.electrical_node_id ?? ""}` : "";
-      drawPin(ctx, point, `${pin.pin_name ?? `pin${pinIndex + 1}`}${suffix}`, "#ffd166");
+      const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, undefined, targets);
+      drawPin(ctx, point, `${pin.pin_name ?? `pin${pinIndex + 1}`}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
     });
   });
 }
@@ -147,7 +178,7 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
   );
 }
 
-export function ResultCanvas({ imageUrl, result, mode }: Props) {
+export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [showPinModeBoxes, setShowPinModeBoxes] = useState(true);
@@ -178,19 +209,20 @@ export function ResultCanvas({ imageUrl, result, mode }: Props) {
     if (mode === "detect") {
       getDetections(result).forEach((detection, index) => {
         if (!detection.bbox) return;
+        const highlighted = isHighlighted(detection.component_id, undefined, undefined, undefined, highlightTargets);
         const label = `${detection.component_id ?? `D${index + 1}`} ${
           detection.component_type ?? detection.class_name ?? "UNKNOWN"
         }`;
-        drawBox(ctx, detection.bbox, label, "#14796b");
+        drawBox(ctx, detection.bbox, label, highlighted ? "#be3144" : "#14796b");
       });
     }
 
     if (mode === "pins") {
-      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes);
+      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes, highlightTargets);
     }
 
     if (mode === "mapping") {
-      drawComponents(ctx, getMappedComponents(result), mode, true);
+      drawComponents(ctx, getMappedComponents(result), mode, true, highlightTargets);
     }
   }, [image, mode, result, showPinModeBoxes]);
 

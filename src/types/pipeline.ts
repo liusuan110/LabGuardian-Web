@@ -119,6 +119,12 @@ export type NetlistV2 = {
   [key: string]: unknown;
 };
 
+export type EvidenceRef =
+  | { type: "component"; component_id: string }
+  | { type: "pin"; component_id: string; pin_name: string; hole_id?: string }
+  | { type: "net"; electrical_net_id: string }
+  | { type: "reference_component"; component_id: string };
+
 export type ComparisonReportItem = {
   error_code: string;
   error_family?: string;
@@ -129,7 +135,7 @@ export type ComparisonReportItem = {
   actual?: unknown;
   component_ref?: unknown;
   component_actual?: unknown;
-  evidence_refs?: unknown[];
+  evidence_refs?: EvidenceRef[];
   suggested_action?: string;
 };
 
@@ -142,6 +148,10 @@ export type ComparisonReport = {
     reference_id?: string;
     reference_name?: string;
     total_item_count?: number;
+    ignore_component_id?: boolean;
+    ignore_hole_id?: boolean;
+    ignore_passive_pin_order?: boolean;
+    ignore_polarity?: boolean;
   };
   items?: ComparisonReportItem[];
 };

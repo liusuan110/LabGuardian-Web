@@ -57,7 +57,7 @@ export function ReferenceSelector({
         </div>
       ) : status !== "error" ? (
         <p className="muted">
-          未选择参考电路时，只显示当前电路诊断，不进行参考拓扑比较。
+          未选择参考电路时只做独立诊断，不判断是否与标准电路一致。
         </p>
       ) : null}
     </section>

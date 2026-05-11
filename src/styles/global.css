@@ -190,7 +190,7 @@ h2 {
   padding: 16px;
   overflow-y: auto;
   align-content: start;
-  height: 700px;
+  height: 820px;
 }
 
 .right-column {
@@ -313,7 +313,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 820px;
+  height: 820px;
   overflow-y: auto;
 }
 
@@ -823,7 +823,15 @@ h2 {
 }
 
 .net-role-select {
-  min-width: 120px;
+  width: 100%;
+  max-width: 220px;
+  height: 36px;
+  border-radius: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  background: #fbfcfc;
+  color: var(--ink);
+  font-size: 13px;
 }
 
 .manual-role-summary {
@@ -1011,43 +1019,60 @@ h2 {
 /* ===== Pin Role Table ===== */
 .bb-pin-role-panel {
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
 }
 
 .bb-pin-role-table-wrap {
-  max-height: 280px;
+  max-height: 420px;
   overflow: auto;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: #fff;
+  scrollbar-gutter: stable;
+  max-width: 100%;
 }
 
 .bb-pin-role-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 13px;
 }
 
 .bb-pin-role-table th,
 .bb-pin-role-table td {
-  padding: 6px 10px;
+  padding: 0 16px;
+  height: 52px;
   text-align: left;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .bb-pin-role-table td.net-cell {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bb-pin-role-table th {
   position: sticky;
   top: 0;
-  background: var(--surface-soft);
+  z-index: 2;
+  background: #f8faf9;
   font-weight: 800;
   color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .bb-pin-role-table tbody tr:last-child td {
@@ -1058,8 +1083,30 @@ h2 {
   background: #f6f9f8;
 }
 
-.net-role-select {
-  min-width: 120px;
+/* Column widths */
+.bb-pin-role-table th:nth-child(1),
+.bb-pin-role-table td:nth-child(1) {
+  width: 110px;
+}
+
+.bb-pin-role-table th:nth-child(2),
+.bb-pin-role-table td:nth-child(2) {
+  width: 100px;
+}
+
+.bb-pin-role-table th:nth-child(3),
+.bb-pin-role-table td:nth-child(3) {
+  width: 120px;
+}
+
+.bb-pin-role-table th:nth-child(4),
+.bb-pin-role-table td:nth-child(4) {
+  width: auto;
+}
+
+.bb-pin-role-table th:nth-child(5),
+.bb-pin-role-table td:nth-child(5) {
+  width: 220px;
 }
 
 .net-role-badge {
@@ -1092,7 +1139,10 @@ h2 {
     padding: 14px;
   }
 
-  .main-stage {
+  .main-stage,
+  .left-column,
+  .diagnostics-panel {
+    height: auto;
     min-height: 520px;
   }
 
@@ -2931,6 +2981,8 @@ h2 {
   display: grid;
   gap: 16px;
   min-width: 0;
+  height: 820px;
+  overflow-y: auto;
 }
 
 .reference-panel {
@@ -3293,4 +3345,51 @@ h2 {
   border-top: 1px solid var(--line);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.comparison-diff-card[role="button"] {
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.comparison-diff-card[role="button"]:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(20, 121, 107, 0.12);
+}
+
+.comparison-diff-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(20, 121, 107, 0.22);
+}
+
+.comparison-diff-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.evidence-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e9f7f4;
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bb-used.highlighted .bb-pulse {
+  animation: bb-pulse-strong 1.2s ease-in-out infinite;
+}
+
+.bb-component-label.highlighted .bb-text.comp {
+  fill: #fff;
+  font-weight: 800;
+}
+
+@keyframes bb-pulse-strong {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

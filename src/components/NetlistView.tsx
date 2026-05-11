@@ -1,4 +1,4 @@
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment } from "../types/pipeline";
+import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, EvidenceRef } from "../types/pipeline";
 import { BreadboardView } from "./BreadboardView";
 
 type Props = {
@@ -12,6 +12,7 @@ type Props = {
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
+  highlightTargets?: EvidenceRef[];
 };
 
 /**
@@ -29,6 +30,7 @@ export function NetlistView({
   netRoleAssignments,
   onNetRoleChange,
   onResetNetRoles,
+  highlightTargets,
 }: Props) {
   return (
     <BreadboardView
@@ -42,6 +44,7 @@ export function NetlistView({
       netRoleAssignments={netRoleAssignments}
       onNetRoleChange={onNetRoleChange}
       onResetNetRoles={onResetNetRoles}
+      highlightTargets={highlightTargets}
     />
   );
 }
