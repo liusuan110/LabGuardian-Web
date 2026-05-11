@@ -95,7 +95,7 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
         station_id: state.stationId,
         query: trimmed,
         user_message: trimmed,
-        mode: "diagnostic_agent",
+        mode: "agent_auto",
         top_k: 5,
         chat_history: buildChatHistory(state.chatMessages),
         diagnosis_context: buildDiagnosisContext(contextResult),

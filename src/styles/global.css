@@ -2420,6 +2420,82 @@ h2 {
   animation: chat-extras-fade 0.5s ease-out;
 }
 
+.agent-evidence-panel {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  animation: chat-extras-fade 0.45s ease-out;
+}
+
+.agent-evidence-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-evidence-row strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.agent-evidence-row small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a4b0f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-concept-card {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #cbdcff;
+  border-radius: 6px;
+  background: #f4f7ff;
+}
+
+.agent-concept-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-concept-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-concept-head code {
+  margin-left: auto;
+  color: #475569;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agent-concept-card p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .chat-evidence summary {
   cursor: pointer;
   display: inline-flex;
