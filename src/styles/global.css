@@ -1038,7 +1038,7 @@ h2 {
 
 .bb-pin-role-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 920px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -1055,6 +1055,11 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: middle;
+}
+
+.bb-pin-role-table th {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .bb-pin-role-table td.net-cell {
@@ -1096,16 +1101,21 @@ h2 {
 
 .bb-pin-role-table th:nth-child(3),
 .bb-pin-role-table td:nth-child(3) {
-  width: 120px;
+  width: 110px;
 }
 
 .bb-pin-role-table th:nth-child(4),
 .bb-pin-role-table td:nth-child(4) {
-  width: auto;
+  width: 170px;
 }
 
 .bb-pin-role-table th:nth-child(5),
 .bb-pin-role-table td:nth-child(5) {
+  width: 220px;
+}
+
+.bb-pin-role-table th:nth-child(6),
+.bb-pin-role-table td:nth-child(6) {
   width: 220px;
 }
 
