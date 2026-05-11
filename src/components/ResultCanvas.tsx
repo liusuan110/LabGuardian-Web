@@ -116,12 +116,8 @@ function drawComponents(
             : pin.pin_display_name ?? pin.pin_name ?? `pin${pinIndex + 1}`;
       const suffix =
         mode === "mapping" ? ` ${pin.hole_id ?? "-"} ${pin.electrical_node_id ?? ""}` : "";
-<<<<<<< Updated upstream
       const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, undefined, targets);
-      drawPin(ctx, point, `${pin.pin_name ?? `pin${pinIndex + 1}`}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
-=======
-      drawPin(ctx, point, `${baseLabel}${suffix}`, "#ffd166");
->>>>>>> Stashed changes
+      drawPin(ctx, point, `${baseLabel}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
     });
   });
 }

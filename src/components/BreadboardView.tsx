@@ -27,13 +27,10 @@ type Props = {
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
-<<<<<<< Updated upstream
   highlightTargets?: EvidenceRef[];
-=======
   pinPolarityAssignments?: Map<string, "E" | "B" | "C">;
   onPinPolarityChange?: (key: string, polarity: "E" | "B" | "C" | null) => void;
   onResetPinPolarities?: () => void;
->>>>>>> Stashed changes
 };
 
 // SVG 几何参数
@@ -187,13 +184,10 @@ export function BreadboardView({
   netRoleAssignments = new Map(),
   onNetRoleChange,
   onResetNetRoles,
-<<<<<<< Updated upstream
   highlightTargets = [],
-=======
   pinPolarityAssignments = new Map(),
   onPinPolarityChange,
   onResetPinPolarities,
->>>>>>> Stashed changes
 }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);

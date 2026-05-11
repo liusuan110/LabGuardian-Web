@@ -180,15 +180,12 @@ export function DemoPage() {
                   dispatch({ type: "set-manual-net-role", key, assignment })
                 }
                 onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
-<<<<<<< Updated upstream
                 highlightTargets={highlightTargets}
-=======
                 pinPolarityAssignments={state.manualPinPolarityAssignments}
                 onPinPolarityChange={(key, polarity) =>
                   dispatch({ type: "set-manual-pin-polarity", key, polarity })
                 }
                 onResetPinPolarities={() => dispatch({ type: "reset-manual-pin-polarities" })}
->>>>>>> Stashed changes
               />
             ) : (
               <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} highlightTargets={highlightTargets} />
