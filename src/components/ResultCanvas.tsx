@@ -108,10 +108,20 @@ function drawComponents(
     }
     component.pins?.forEach((pin, pinIndex) => {
       const point = topPoint(component, pinIndex);
+      const baseLabel =
+        pin.polarity_role && pin.polarity_role !== "UNKNOWN"
+          ? pin.polarity_role
+          : pin.polarity_candidate_role && pin.polarity_candidate_role !== "UNKNOWN"
+            ? pin.polarity_candidate_role
+            : pin.pin_display_name ?? pin.pin_name ?? `pin${pinIndex + 1}`;
       const suffix =
         mode === "mapping" ? ` ${pin.hole_id ?? "-"} ${pin.electrical_node_id ?? ""}` : "";
+<<<<<<< Updated upstream
       const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, undefined, targets);
       drawPin(ctx, point, `${pin.pin_name ?? `pin${pinIndex + 1}`}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
+=======
+      drawPin(ctx, point, `${baseLabel}${suffix}`, "#ffd166");
+>>>>>>> Stashed changes
     });
   });
 }
@@ -126,6 +136,9 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
       pins?: Array<{
         pin_id?: number;
         pin_name?: string;
+        pin_display_name?: string;
+        polarity_role?: string;
+        polarity_candidate_role?: string;
         hole_id?: string;
         electrical_node_id?: string;
       }>;
@@ -159,7 +172,13 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
             <div className="pins-container">
               {comp.pins?.map((pin) => (
                 <div key={pin.pin_id} className="pin-item">
-                  <span className="pin-name">{pin.pin_name || `pin${pin.pin_id}`}</span>
+                  <span className="pin-name">
+                    {(pin.polarity_role && pin.polarity_role !== "UNKNOWN"
+                      ? pin.polarity_role
+                      : pin.polarity_candidate_role && pin.polarity_candidate_role !== "UNKNOWN"
+                        ? pin.polarity_candidate_role
+                        : pin.pin_display_name || pin.pin_name || `pin${pin.pin_id}`)}
+                  </span>
                   <span className="arrow">→</span>
                   <span className="hole-coord">{pin.hole_id || "-"}</span>
                   {pin.electrical_node_id && (

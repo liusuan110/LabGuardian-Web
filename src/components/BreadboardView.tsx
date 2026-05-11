@@ -27,7 +27,13 @@ type Props = {
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
+<<<<<<< Updated upstream
   highlightTargets?: EvidenceRef[];
+=======
+  pinPolarityAssignments?: Map<string, "E" | "B" | "C">;
+  onPinPolarityChange?: (key: string, polarity: "E" | "B" | "C" | null) => void;
+  onResetPinPolarities?: () => void;
+>>>>>>> Stashed changes
 };
 
 // SVG 几何参数
@@ -181,7 +187,13 @@ export function BreadboardView({
   netRoleAssignments = new Map(),
   onNetRoleChange,
   onResetNetRoles,
+<<<<<<< Updated upstream
   highlightTargets = [],
+=======
+  pinPolarityAssignments = new Map(),
+  onPinPolarityChange,
+  onResetPinPolarities,
+>>>>>>> Stashed changes
 }: Props) {
   const model = useMemo(() => buildBreadboardModel(result, corrections), [result, corrections]);
   const [hover, setHover] = useState<Hover>(null);
@@ -260,6 +272,27 @@ export function BreadboardView({
       electrical_net_id: pin.electricalNetId,
     };
     onNetRoleChange(key, assignment);
+  }
+
+  function handlePolarityChange(pin: BreadboardPinRef, polarity: string) {
+    if (!onPinPolarityChange) return;
+    const key = `${pin.componentId}.${pin.pinName}`;
+    if (!polarity) {
+      onPinPolarityChange(key, null);
+      return;
+    }
+    if (polarity === "E" || polarity === "B" || polarity === "C") {
+      onPinPolarityChange(key, polarity);
+    }
+  }
+
+  function displayPolarity(pin: BreadboardPinRef): string {
+    const key = `${pin.componentId}.${pin.pinName}`;
+    const manual = pinPolarityAssignments.get(key);
+    if (manual) return manual;
+    if (pin.polarityRole && pin.polarityRole !== "UNKNOWN") return pin.polarityRole;
+    if (pin.polarityCandidateRole && pin.polarityCandidateRole !== "UNKNOWN") return pin.polarityCandidateRole;
+    return pin.pinDisplayName ?? pin.pinName;
   }
 
   if (!result || (model.holes.size === 0 && model.unresolvedPins.length === 0)) {
@@ -1070,7 +1103,9 @@ export function BreadboardView({
               {hover.pins.map((p, i) => (
                 <li key={i}>
                   <span className="bb-tooltip-comp">{p.componentId}</span>
-                  <span className="bb-tooltip-pin">{p.pinName}</span>
+                  <span className="bb-tooltip-pin">
+                    {displayPolarity(p)}
+                  </span>
                   <span className="bb-tooltip-hole">@{p.holeId}</span>
                 </li>
               ))}
@@ -1140,6 +1175,7 @@ export function BreadboardView({
                   <th>引脚</th>
                   <th>孔位</th>
                   <th>网络</th>
+                  <th>极性</th>
                   <th>角色</th>
                 </tr>
               </thead>
@@ -1150,9 +1186,25 @@ export function BreadboardView({
                   return (
                     <tr key={key}>
                       <td>{pin.componentId}</td>
-                      <td>{pin.pinName}</td>
+                      <td>{displayPolarity(pin)}</td>
                       <td>{pin.holeId}</td>
                       <td className="net-cell">{pin.netId}</td>
+                      <td>
+                        {pin.componentType === "Transistor" ? (
+                          <select
+                            className="net-role-select"
+                            value={pinPolarityAssignments.get(key) ?? ""}
+                            onChange={(e) => handlePolarityChange(pin, e.target.value)}
+                          >
+                            <option value="">自动</option>
+                            <option value="E">E</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                          </select>
+                        ) : (
+                          <span className="muted">-</span>
+                        )}
+                      </td>
                       <td>
                         <select
                           className="net-role-select"
@@ -1181,7 +1233,7 @@ export function BreadboardView({
           type="button"
           className="run-button correction-compare-button"
           onClick={onApplyCorrections}
-          disabled={(corrections.size === 0 && netRoleAssignments.size === 0) || isApplyingCorrections}
+          disabled={(corrections.size === 0 && netRoleAssignments.size === 0 && pinPolarityAssignments.size === 0) || isApplyingCorrections}
           title={
             selectedReferenceId
               ? "将手工修正提交给后端，重算拓扑并与参考电路比较"
@@ -1195,13 +1247,16 @@ export function BreadboardView({
               : "确认修正并重算网表"}
         </button>
         <div className="manual-correction-meta">
-          {corrections.size > 0 || netRoleAssignments.size > 0 ? (
+          {corrections.size > 0 || netRoleAssignments.size > 0 || pinPolarityAssignments.size > 0 ? (
             <div className="manual-correction-counts">
               {corrections.size > 0 ? (
                 <span>孔位修正 {corrections.size} 项</span>
               ) : null}
               {netRoleAssignments.size > 0 ? (
                 <span>网络角色 {netRoleAssignments.size} 项</span>
+              ) : null}
+              {pinPolarityAssignments.size > 0 ? (
+                <span>引脚极性 {pinPolarityAssignments.size} 项</span>
               ) : null}
             </div>
           ) : null}
@@ -1214,6 +1269,11 @@ export function BreadboardView({
             {netRoleAssignments.size > 0 && onResetNetRoles ? (
               <button type="button" className="bb-reset-btn" onClick={onResetNetRoles}>
                 ↺ 重置网络角色
+              </button>
+            ) : null}
+            {pinPolarityAssignments.size > 0 && onResetPinPolarities ? (
+              <button type="button" className="bb-reset-btn" onClick={onResetPinPolarities}>
+                ↺ 重置引脚极性
               </button>
             ) : null}
           </div>

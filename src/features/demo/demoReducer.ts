@@ -26,6 +26,7 @@ export type DemoState = {
   pipelineResult: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   manualCorrections: Map<string, string>;
   manualNetRoleAssignments: Map<string, ManualNetRoleAssignment>;
+  manualPinPolarityAssignments: Map<string, "E" | "B" | "C">;
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
@@ -48,6 +49,8 @@ export type DemoAction =
   | { type: "reset-manual-corrections" }
   | { type: "set-manual-net-role"; key: string; assignment: ManualNetRoleAssignment | null }
   | { type: "reset-manual-net-roles" }
+  | { type: "set-manual-pin-polarity"; key: string; polarity: "E" | "B" | "C" | null }
+  | { type: "reset-manual-pin-polarities" }
   | { type: "run-start" }
   | { type: "corrected-recompute-start" }
   | { type: "corrected-recompute-success"; result: PipelineResult }
@@ -91,6 +94,7 @@ export const initialDemoState: DemoState = {
   pipelineResult: null,
   manualCorrections: new Map(),
   manualNetRoleAssignments: new Map(),
+  manualPinPolarityAssignments: new Map(),
   agentStatus: "idle",
   agentResult: null,
   agentError: "",
@@ -129,6 +133,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         pipelineResult: null,
         manualCorrections: new Map(),
         manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentResult: null,
         agentError: "",
         agentStatus: "idle",
@@ -145,7 +150,12 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "set-manual-corrections":
       return { ...state, manualCorrections: new Map(action.corrections) };
     case "reset-manual-corrections":
-      return { ...state, manualCorrections: new Map(), manualNetRoleAssignments: new Map() };
+      return {
+        ...state,
+        manualCorrections: new Map(),
+        manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
+      };
     case "set-manual-net-role": {
       const next = new Map(state.manualNetRoleAssignments);
       if (action.assignment === null) {
@@ -157,6 +167,17 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     case "reset-manual-net-roles":
       return { ...state, manualNetRoleAssignments: new Map() };
+    case "set-manual-pin-polarity": {
+      const next = new Map(state.manualPinPolarityAssignments);
+      if (action.polarity === null) {
+        next.delete(action.key);
+      } else {
+        next.set(action.key, action.polarity);
+      }
+      return { ...state, manualPinPolarityAssignments: next };
+    }
+    case "reset-manual-pin-polarities":
+      return { ...state, manualPinPolarityAssignments: new Map() };
     case "run-start":
       return {
         ...state,
@@ -164,6 +185,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         error: "",
         manualCorrections: new Map(),
         manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentStatus: "idle",
         agentError: "",
         chatMessages: [],
@@ -205,6 +227,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         runState: "success",
         pipelineResult: mergedResult,
         manualCorrections: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentResult: null,
         agentError: "",
         pipelineProgress: {

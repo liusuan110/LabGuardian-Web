@@ -12,7 +12,13 @@ type Props = {
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
+<<<<<<< Updated upstream
   highlightTargets?: EvidenceRef[];
+=======
+  pinPolarityAssignments?: Map<string, "E" | "B" | "C">;
+  onPinPolarityChange?: (key: string, polarity: "E" | "B" | "C" | null) => void;
+  onResetPinPolarities?: () => void;
+>>>>>>> Stashed changes
 };
 
 /**
@@ -30,7 +36,13 @@ export function NetlistView({
   netRoleAssignments,
   onNetRoleChange,
   onResetNetRoles,
+<<<<<<< Updated upstream
   highlightTargets,
+=======
+  pinPolarityAssignments,
+  onPinPolarityChange,
+  onResetPinPolarities,
+>>>>>>> Stashed changes
 }: Props) {
   return (
     <BreadboardView
@@ -44,7 +56,13 @@ export function NetlistView({
       netRoleAssignments={netRoleAssignments}
       onNetRoleChange={onNetRoleChange}
       onResetNetRoles={onResetNetRoles}
+<<<<<<< Updated upstream
       highlightTargets={highlightTargets}
+=======
+      pinPolarityAssignments={pinPolarityAssignments}
+      onPinPolarityChange={onPinPolarityChange}
+      onResetPinPolarities={onResetPinPolarities}
+>>>>>>> Stashed changes
     />
   );
 }

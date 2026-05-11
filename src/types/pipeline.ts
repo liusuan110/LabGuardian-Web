@@ -57,6 +57,13 @@ export type ManualNetRoleAssignment = {
   electrical_net_id?: string | null;
 };
 
+export type ManualPinPolarityAssignment = {
+  component_id: string;
+  pin_name: string;
+  polarity: "E" | "B" | "C";
+  source?: "manual_pin_polarity_select";
+};
+
 export type CorrectedRecomputeRequest = {
   station_id: string;
   job_id?: string | null;
@@ -66,6 +73,7 @@ export type CorrectedRecomputeRequest = {
   reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
   net_role_assignments?: ManualNetRoleAssignment[];
+  pin_polarity_assignments?: ManualPinPolarityAssignment[];
 };
 
 export type Detection = {
@@ -83,6 +91,9 @@ export type Detection = {
 export type Pin = {
   pin_id?: number;
   pin_name?: string;
+  pin_display_name?: string;
+  polarity_role?: string;
+  polarity_candidate_role?: string;
   keypoints_by_view?: Record<string, number[] | null>;
   confidence?: number;
   source?: string;
@@ -222,6 +233,9 @@ export type VersionInfo = {
 export type PinLocation = {
   pin_id: number;
   pin_name: string;
+  pin_display_name?: string;
+  polarity_role?: string;
+  polarity_candidate_role?: string;
   hole_id: string;
   logic_loc?: [string, string];
   x_warp?: number;

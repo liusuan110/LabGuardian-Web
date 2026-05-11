@@ -70,13 +70,24 @@ export function DemoPage() {
     const components = (getStageData(result, "mapping").components ?? []) as PipelineComponent[];
     const corrections = buildCorrectionPatch(result, state.manualCorrections);
     const netRoleAssignments = Array.from(state.manualNetRoleAssignments.values());
+    const pinPolarityAssignments = Array.from(state.manualPinPolarityAssignments.entries()).map(
+      ([key, polarity]) => {
+        const [component_id, pin_name] = key.split(".", 2);
+        return {
+          component_id,
+          pin_name,
+          polarity,
+          source: "manual_pin_polarity_select" as const,
+        };
+      },
+    );
 
     if (components.length === 0) {
       dispatch({ type: "run-error", error: "没有可提交的 mapping components。" });
       return;
     }
-    if (corrections.length === 0 && netRoleAssignments.length === 0) {
-      dispatch({ type: "run-error", error: "请先修改孔位或选择 VIN/VOUT/VCC/GND。" });
+    if (corrections.length === 0 && netRoleAssignments.length === 0 && pinPolarityAssignments.length === 0) {
+      dispatch({ type: "run-error", error: "请先修改孔位、网络角色，或手动指定三极管引脚极性。" });
       return;
     }
 
@@ -88,6 +99,7 @@ export function DemoPage() {
         components,
         corrections,
         net_role_assignments: netRoleAssignments,
+        pin_polarity_assignments: pinPolarityAssignments,
         rail_assignments: state.rails,
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
@@ -158,6 +170,7 @@ export function DemoPage() {
                 onResetCorrections={() => {
                   dispatch({ type: "reset-manual-corrections" });
                   dispatch({ type: "reset-manual-net-roles" });
+                  dispatch({ type: "reset-manual-pin-polarities" });
                 }}
                 onApplyCorrections={handleApplyCorrections}
                 isApplyingCorrections={state.runState === "running"}
@@ -167,7 +180,15 @@ export function DemoPage() {
                   dispatch({ type: "set-manual-net-role", key, assignment })
                 }
                 onResetNetRoles={() => dispatch({ type: "reset-manual-net-roles" })}
+<<<<<<< Updated upstream
                 highlightTargets={highlightTargets}
+=======
+                pinPolarityAssignments={state.manualPinPolarityAssignments}
+                onPinPolarityChange={(key, polarity) =>
+                  dispatch({ type: "set-manual-pin-polarity", key, polarity })
+                }
+                onResetPinPolarities={() => dispatch({ type: "reset-manual-pin-polarities" })}
+>>>>>>> Stashed changes
               />
             ) : (
               <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} highlightTargets={highlightTargets} />
