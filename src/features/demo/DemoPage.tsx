@@ -76,7 +76,7 @@ export function DemoPage() {
       return;
     }
     if (corrections.length === 0 && netRoleAssignments.length === 0) {
-      dispatch({ type: "run-error", error: "请先修改孔位或选择 VIN/VOUT/VCC/GND。" });
+      dispatch({ type: "run-error", error: "请先修改孔位或选择 VCC/VEE/GND/UI1/UI2/UO1/UO2。" });
       return;
     }
 

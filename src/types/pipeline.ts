@@ -45,7 +45,7 @@ export type ManualCorrectionPatch = {
   source: "manual_drag";
 };
 
-export type ManualNetRole = "VIN" | "VOUT" | "VCC" | "GND";
+export type ManualNetRole = "VCC" | "VEE" | "GND" | "UI1" | "UI2" | "UO1" | "UO2";
 
 export type ManualNetRoleAssignment = {
   role: ManualNetRole;

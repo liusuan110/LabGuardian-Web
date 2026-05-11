@@ -1123,7 +1123,7 @@ export function BreadboardView({
       {allPins.length > 0 ? (
         <div className="bb-pin-role-panel">
           <div className="panel-heading">
-            <h2>引脚网络角色</h2>
+            <h2>引脚网络角色标记</h2>
             <span>
               {netRoleAssignments.size > 0 ? (
                 <span className="manual-role-summary">已指定 {netRoleAssignments.size} 个角色</span>
@@ -1160,10 +1160,13 @@ export function BreadboardView({
                           onChange={(e) => handleRoleChange(pin, e.target.value)}
                         >
                           <option value="">无</option>
-                          <option value="VIN">VIN / 输入</option>
-                          <option value="VOUT">VOUT / 输出</option>
-                          <option value="VCC">VCC / 正电</option>
+                          <option value="VCC">VCC / 正电源</option>
+                          <option value="VEE">VEE / 负电源</option>
                           <option value="GND">GND / 地</option>
+                          <option value="UI1">UI1 / 输入 1</option>
+                          <option value="UI2">UI2 / 输入 2</option>
+                          <option value="UO1">UO1 / 输出 1</option>
+                          <option value="UO2">UO2 / 输出 2</option>
                         </select>
                       </td>
                     </tr>
@@ -1184,21 +1187,21 @@ export function BreadboardView({
           disabled={(corrections.size === 0 && netRoleAssignments.size === 0) || isApplyingCorrections}
           title={
             selectedReferenceId
-              ? "将手工修正提交给后端，重算拓扑并与参考电路比较"
+              ? "将手工修正提交给后端，重算拓扑并与逻辑参考电路比较"
               : "将手工修正提交给后端并重算拓扑"
           }
         >
           {isApplyingCorrections
             ? "正在重算..."
             : selectedReferenceId
-              ? "确认修正并与参考电路比较"
+              ? "确认修正并与逻辑参考电路比较"
               : "确认修正并重算网表"}
         </button>
         <div className="manual-correction-meta">
           {corrections.size > 0 || netRoleAssignments.size > 0 ? (
             <div className="manual-correction-counts">
               {corrections.size > 0 ? (
-                <span>孔位修正 {corrections.size} 项</span>
+                <span>当前 netlist 修正 {corrections.size} 项</span>
               ) : null}
               {netRoleAssignments.size > 0 ? (
                 <span>网络角色 {netRoleAssignments.size} 项</span>
@@ -1208,7 +1211,7 @@ export function BreadboardView({
           <div className="manual-correction-reset-btns">
             {corrections.size > 0 ? (
               <button type="button" className="bb-reset-btn" onClick={onResetCorrections}>
-                ↺ 重置孔位修正
+                ↺ 重置当前 netlist 修正
               </button>
             ) : null}
             {netRoleAssignments.size > 0 && onResetNetRoles ? (
@@ -1219,8 +1222,9 @@ export function BreadboardView({
           </div>
         </div>
         <p className="muted">
-          你可以只选择 VIN/VOUT/VCC/GND，不修改孔位，也可以提交比较。
-          这些角色会标记到该 pin 所在的电气网络，而不是只标记单个孔。
+          手动修正用于修正当前 netlist，不代表参考电路要求固定孔位。
+          你可以只选择 VCC/VEE/GND/UI1/UI2/UO1/UO2 标记网络角色，不修改孔位，也可以提交比较。
+          这些角色会标记到该 pin 所在的电气网络，用于逻辑拓扑比较。
         </p>
       </div>
 
