@@ -30,8 +30,6 @@ const ERROR_LABELS: Record<string, string> = {
   ROLE_TARGET_NOT_CONNECTED: "标记位置未连接",
 };
 
-const POLARITY_CODES = new Set(["POLARITY_REVERSED", "POLARITY_UNKNOWN"]);
-
 function formatEvidenceRef(ref: EvidenceRef): string {
   switch (ref.type) {
     case "component":
@@ -103,6 +101,20 @@ function JsonDetail({ label, data }: { label: string; data: unknown }) {
       </summary>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </details>
+  );
+}
+
+function formatSummaryValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return value >= 0 && value <= 1 ? asPercent(value) : String(value);
+  if (typeof value === "string") return value;
+  return "-";
+}
+
+function mappingEntries(mapping: unknown): Array<[string, string]> {
+  if (!mapping || typeof mapping !== "object") return [];
+  return Object.entries(mapping as Record<string, unknown>).flatMap(([key, value]) =>
+    typeof value === "string" ? [[key, value] as [string, string]] : [],
   );
 }
 
@@ -187,15 +199,11 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
   const ignoreHoleId = summary?.ignore_hole_id === true;
   const ignorePassivePinOrder = summary?.ignore_passive_pin_order === true;
   const ignorePolarity = summary?.ignore_polarity === true;
+  const strictFunctionalPinRoles = summary?.strict_functional_pin_roles === true;
+  const componentMapping = mappingEntries(cr?.ref_to_current_component_mapping);
+  const netMapping = mappingEntries(cr?.ref_to_current_net_mapping);
 
-  const filteredItems = items.filter((item) => {
-    const code = String(item.error_code ?? "");
-    if (code === "HOLE_MISMATCH") return false;
-    if (POLARITY_CODES.has(code)) return false;
-    return true;
-  });
-
-  const sortedItems = [...filteredItems].sort((a, b) => {
+  const sortedItems = [...items].sort((a, b) => {
     const sa = SEVERITY_ORDER[String(a.severity ?? "warning")] ?? 99;
     const sb = SEVERITY_ORDER[String(b.severity ?? "warning")] ?? 99;
     return sa - sb;
@@ -240,30 +248,62 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
               参考电路：{referenceName}
             </p>
           ) : null}
+          <div className="comparison-summary-grid">
+            <span>comparison_mode</span><strong>{formatSummaryValue(summary?.comparison_mode)}</strong>
+            <span>match_type</span><strong>{formatSummaryValue(summary?.match_type)}</strong>
+            <span>similarity</span><strong>{formatSummaryValue(summary?.similarity)}</strong>
+            <span>progress</span><strong>{formatSummaryValue(summary?.progress)}</strong>
+            <span>reference_id</span><strong>{formatSummaryValue(summary?.reference_id)}</strong>
+            <span>reference_name</span><strong>{formatSummaryValue(summary?.reference_name)}</strong>
+            <span>ignore_component_id</span><strong>{formatSummaryValue(summary?.ignore_component_id)}</strong>
+            <span>ignore_hole_id</span><strong>{formatSummaryValue(summary?.ignore_hole_id)}</strong>
+            <span>ignore_passive_pin_order</span><strong>{formatSummaryValue(summary?.ignore_passive_pin_order)}</strong>
+            <span>strict_functional_pin_roles</span><strong>{formatSummaryValue(summary?.strict_functional_pin_roles)}</strong>
+            <span>equivalence_rule</span><strong>{formatSummaryValue(summary?.equivalence_rule)}</strong>
+          </div>
           <p className="comparison-summary-hint">
-            元件编号和具体孔位可以不同；系统按元件类型、网络连接关系和输入/输出/电源/地角色判断。
+            逻辑参考电路用于拓扑比较，不要求孔位一致，不要求元件编号一致；系统按元件类型、网络连接关系和端口语义标注判断。
           </p>
-          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder || ignorePolarity) ? (
+          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder || ignorePolarity || strictFunctionalPinRoles) ? (
             <div className="comparison-ignore-badges">
               {ignoreComponentId ? <span className="ignore-badge">忽略元件编号</span> : null}
               {ignoreHoleId ? <span className="ignore-badge">忽略具体孔位</span> : null}
               {ignorePassivePinOrder ? <span className="ignore-badge">无极性两脚元件允许引脚互换</span> : null}
               {ignorePolarity ? <span className="ignore-badge">忽略极性</span> : null}
+              {strictFunctionalPinRoles ? <span className="ignore-badge">严格功能引脚角色</span> : null}
             </div>
           ) : null}
-          <p className="comparison-summary-hint">
-            当前版本默认元件极性正确，不进行极性错误判断。
-          </p>
-          {logicCorrect && filteredItems.length === 0 ? (
+          {(componentMapping.length > 0 || netMapping.length > 0) ? (
+            <div className="logical-mapping-block">
+              <strong>逻辑映射关系</strong>
+              {componentMapping.length > 0 ? (
+                <div>
+                  <span className="mapping-section-title">参考元件映射</span>
+                  {componentMapping.map(([ref, current]) => (
+                    <code key={`comp-${ref}`}>{ref} -&gt; {current}</code>
+                  ))}
+                </div>
+              ) : null}
+              {netMapping.length > 0 ? (
+                <div>
+                  <span className="mapping-section-title">参考网络映射</span>
+                  {netMapping.map(([ref, current]) => (
+                    <code key={`net-${ref}`}>{ref} -&gt; {current}</code>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {logicCorrect && items.length === 0 ? (
             <p className="comparison-summary-hint">
               {totalItemCount === 0
                 ? "当前电路与参考电路连接关系一致。"
                 : "手动修正后，当前电路逻辑连接与参考电路一致。"}
             </p>
           ) : null}
-          {!logicCorrect && filteredItems.length > 0 ? (
+          {!logicCorrect && items.length > 0 ? (
             <p className="comparison-summary-hint">
-              发现 {filteredItems.length} 处与参考电路不一致，详见下方。
+              发现 {items.length} 处与参考电路不一致，详见下方。
             </p>
           ) : null}
         </section>

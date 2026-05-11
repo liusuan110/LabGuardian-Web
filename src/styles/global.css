@@ -1076,7 +1076,7 @@ h2 {
 
 .bb-pin-role-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 920px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -1093,6 +1093,11 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: middle;
+}
+
+.bb-pin-role-table th {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .bb-pin-role-table td.net-cell {
@@ -1134,16 +1139,21 @@ h2 {
 
 .bb-pin-role-table th:nth-child(3),
 .bb-pin-role-table td:nth-child(3) {
-  width: 120px;
+  width: 110px;
 }
 
 .bb-pin-role-table th:nth-child(4),
 .bb-pin-role-table td:nth-child(4) {
-  width: auto;
+  width: 170px;
 }
 
 .bb-pin-role-table th:nth-child(5),
 .bb-pin-role-table td:nth-child(5) {
+  width: 220px;
+}
+
+.bb-pin-role-table th:nth-child(6),
+.bb-pin-role-table td:nth-child(6) {
   width: 220px;
 }
 
@@ -1163,6 +1173,59 @@ h2 {
 .role-ui2 { background: #d97706; }
 .role-uo1 { background: #0d9488; }
 .role-uo2 { background: #059669; }
+.role-input { background: #ea580c; }
+.role-output { background: #0d9488; }
+.role-power { background: #7c3aed; }
+.role-ground { background: #2563eb; }
+.role-signal { background: #64748b; }
+
+.net-role-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.net-role-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.net-role-panel .panel-heading h2 {
+  margin-bottom: 4px;
+}
+
+.net-role-table {
+  min-width: 760px;
+}
+
+.net-role-table th:nth-child(1),
+.net-role-table td:nth-child(1) {
+  width: 190px;
+}
+
+.net-role-table th:nth-child(2),
+.net-role-table td:nth-child(2) {
+  width: 220px;
+}
+
+.net-role-table th:nth-child(3),
+.net-role-table td:nth-child(3) {
+  width: 180px;
+}
+
+.net-role-table th:nth-child(4),
+.net-role-table td:nth-child(4) {
+  width: 260px;
+}
+
+.compact-actions {
+  align-items: center;
+  grid-template-columns: minmax(240px, max-content) max-content;
+  padding: 0;
+  background: transparent;
+}
 
 @media (max-width: 1180px) {
   .demo-grid,
@@ -2461,6 +2524,82 @@ h2 {
   animation: chat-extras-fade 0.5s ease-out;
 }
 
+.agent-evidence-panel {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  animation: chat-extras-fade 0.45s ease-out;
+}
+
+.agent-evidence-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-evidence-row strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.agent-evidence-row small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a4b0f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-concept-card {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #cbdcff;
+  border-radius: 6px;
+  background: #f4f7ff;
+}
+
+.agent-concept-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-concept-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-concept-head code {
+  margin-left: auto;
+  color: #475569;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agent-concept-card p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .chat-evidence summary {
   cursor: pointer;
   display: inline-flex;
@@ -3204,6 +3343,55 @@ h2 {
   margin: 0;
   color: var(--subtle);
   font-size: 12px;
+}
+
+.comparison-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 1.2fr);
+  gap: 6px 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+}
+
+.comparison-summary-grid span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.comparison-summary-grid strong {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.logical-mapping-block {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.logical-mapping-block > div {
+  display: grid;
+  gap: 5px;
+}
+
+.logical-mapping-block code {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.mapping-section-title {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .comparison-summary-hint {

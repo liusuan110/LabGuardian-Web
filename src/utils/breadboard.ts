@@ -27,6 +27,9 @@ export type BreadboardPinRef = {
   componentId: string;
   componentType: string;
   pinName: string;
+  pinDisplayName?: string;
+  polarityRole?: string;
+  polarityCandidateRole?: string;
   netId: string;
   holeId: string;
   /** 电气节点 ID（如 ROW_10_L） */
@@ -466,6 +469,9 @@ export function buildBreadboardModel(
         componentId,
         componentType,
         pinName,
+        pinDisplayName: pin.pin_display_name ?? pinName,
+        polarityRole: pin.polarity_role,
+        polarityCandidateRole: pin.polarity_candidate_role,
         netId,
         electricalNodeId: nodeId,
         electricalNetId: netId,

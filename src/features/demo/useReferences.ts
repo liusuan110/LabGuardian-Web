@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { listReferences } from "../../api/references";
+import { getReference, listReferences } from "../../api/references";
 import type { DemoAction } from "./demoReducer";
 
-export function useReferences(dispatch: React.Dispatch<DemoAction>) {
+export function useReferences(dispatch: React.Dispatch<DemoAction>, selectedReferenceId: string | null) {
   useEffect(() => {
     let cancelled = false;
 
@@ -29,4 +29,35 @@ export function useReferences(dispatch: React.Dispatch<DemoAction>) {
       cancelled = true;
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCurrentReference(referenceId: string) {
+      dispatch({ type: "current-reference-loading" });
+      try {
+        const reference = await getReference(referenceId);
+        if (!cancelled) {
+          dispatch({ type: "current-reference-success", reference });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          dispatch({
+            type: "current-reference-error",
+            error: error instanceof Error ? error.message : "完整逻辑参考电路加载失败",
+          });
+        }
+      }
+    }
+
+    if (!selectedReferenceId) {
+      dispatch({ type: "clear-current-reference" });
+    } else {
+      loadCurrentReference(selectedReferenceId);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, selectedReferenceId]);
 }

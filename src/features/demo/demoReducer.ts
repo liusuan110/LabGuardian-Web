@@ -1,5 +1,15 @@
 import type { AgentAction, AgentProgressPhase, AgentStatusResponse, ChatMessage } from "../../types/agent";
-import type { PipelineResult, PipelineStageName, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult, ReferenceSummary, ManualNetRoleAssignment } from "../../types/pipeline";
+import type {
+  PipelineResult,
+  PipelineStageName,
+  RailAssignments,
+  VersionInfo,
+  CircuitAnalysisResult,
+  PortVisualizationResult,
+  ReferenceSummary,
+  ManualNetRoleAssignment,
+  LogicalReference,
+} from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
 
@@ -26,6 +36,7 @@ export type DemoState = {
   pipelineResult: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   manualCorrections: Map<string, string>;
   manualNetRoleAssignments: Map<string, ManualNetRoleAssignment>;
+  manualPinPolarityAssignments: Map<string, "E" | "B" | "C">;
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
@@ -35,6 +46,9 @@ export type DemoState = {
   selectedReferenceId: string | null;
   referenceStatus: "idle" | "loading" | "success" | "error";
   referenceError: string;
+  currentReference: LogicalReference | null;
+  currentReferenceStatus: "idle" | "loading" | "success" | "error";
+  currentReferenceError: string;
   selectedDiagnosticIndex: number | null;
 };
 
@@ -48,6 +62,8 @@ export type DemoAction =
   | { type: "reset-manual-corrections" }
   | { type: "set-manual-net-role"; key: string; assignment: ManualNetRoleAssignment | null }
   | { type: "reset-manual-net-roles" }
+  | { type: "set-manual-pin-polarity"; key: string; polarity: "E" | "B" | "C" | null }
+  | { type: "reset-manual-pin-polarities" }
   | { type: "run-start" }
   | { type: "corrected-recompute-start" }
   | { type: "corrected-recompute-success"; result: PipelineResult }
@@ -65,6 +81,10 @@ export type DemoAction =
   | { type: "references-success"; references: ReferenceSummary[] }
   | { type: "references-error"; error: string }
   | { type: "select-reference"; referenceId: string | null }
+  | { type: "current-reference-loading" }
+  | { type: "current-reference-success"; reference: LogicalReference }
+  | { type: "current-reference-error"; error: string }
+  | { type: "clear-current-reference" }
   | { type: "select-diagnostic"; index: number | null }
   | { type: "clear-selected-diagnostic" };
 
@@ -91,6 +111,7 @@ export const initialDemoState: DemoState = {
   pipelineResult: null,
   manualCorrections: new Map(),
   manualNetRoleAssignments: new Map(),
+  manualPinPolarityAssignments: new Map(),
   agentStatus: "idle",
   agentResult: null,
   agentError: "",
@@ -100,6 +121,9 @@ export const initialDemoState: DemoState = {
   selectedReferenceId: null,
   referenceStatus: "idle",
   referenceError: "",
+  currentReference: null,
+  currentReferenceStatus: "idle",
+  currentReferenceError: "",
   selectedDiagnosticIndex: null,
 };
 
@@ -129,6 +153,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         pipelineResult: null,
         manualCorrections: new Map(),
         manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentResult: null,
         agentError: "",
         agentStatus: "idle",
@@ -145,7 +170,12 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "set-manual-corrections":
       return { ...state, manualCorrections: new Map(action.corrections) };
     case "reset-manual-corrections":
-      return { ...state, manualCorrections: new Map(), manualNetRoleAssignments: new Map() };
+      return {
+        ...state,
+        manualCorrections: new Map(),
+        manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
+      };
     case "set-manual-net-role": {
       const next = new Map(state.manualNetRoleAssignments);
       if (action.assignment === null) {
@@ -157,6 +187,17 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     case "reset-manual-net-roles":
       return { ...state, manualNetRoleAssignments: new Map() };
+    case "set-manual-pin-polarity": {
+      const next = new Map(state.manualPinPolarityAssignments);
+      if (action.polarity === null) {
+        next.delete(action.key);
+      } else {
+        next.set(action.key, action.polarity);
+      }
+      return { ...state, manualPinPolarityAssignments: next };
+    }
+    case "reset-manual-pin-polarities":
+      return { ...state, manualPinPolarityAssignments: new Map() };
     case "run-start":
       return {
         ...state,
@@ -164,6 +205,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         error: "",
         manualCorrections: new Map(),
         manualNetRoleAssignments: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentStatus: "idle",
         agentError: "",
         chatMessages: [],
@@ -205,6 +247,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         runState: "success",
         pipelineResult: mergedResult,
         manualCorrections: new Map(),
+        manualPinPolarityAssignments: new Map(),
         agentResult: null,
         agentError: "",
         pipelineProgress: {
@@ -378,7 +421,10 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       };
     case "references-loading":
       return { ...state, referenceStatus: "loading", referenceError: "" };
-    case "references-success":
+    case "references-success": {
+      const preferredReference =
+        action.references.find((item) => item.reference_id === "diff_pair_current_source_ref") ??
+        action.references[0];
       return {
         ...state,
         referenceStatus: "success",
@@ -386,9 +432,10 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         referenceError: "",
         selectedReferenceId:
           state.selectedReferenceId ??
-          action.references[0]?.reference_id ??
+          preferredReference?.reference_id ??
           null,
       };
+    }
     case "references-error":
       return {
         ...state,
@@ -399,6 +446,37 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return {
         ...state,
         selectedReferenceId: action.referenceId,
+        currentReference: null,
+        currentReferenceStatus: action.referenceId ? "loading" : "idle",
+        currentReferenceError: "",
+        manualNetRoleAssignments: new Map(),
+      };
+    case "current-reference-loading":
+      return {
+        ...state,
+        currentReferenceStatus: "loading",
+        currentReferenceError: "",
+      };
+    case "current-reference-success":
+      return {
+        ...state,
+        currentReference: action.reference,
+        currentReferenceStatus: "success",
+        currentReferenceError: "",
+      };
+    case "current-reference-error":
+      return {
+        ...state,
+        currentReference: null,
+        currentReferenceStatus: "error",
+        currentReferenceError: action.error,
+      };
+    case "clear-current-reference":
+      return {
+        ...state,
+        currentReference: null,
+        currentReferenceStatus: "idle",
+        currentReferenceError: "",
       };
     case "select-diagnostic":
       return { ...state, selectedDiagnosticIndex: action.index };

@@ -1,6 +1,7 @@
 import { Bot, BookOpen, FileSearch, SendHorizontal, Sparkles, UserRound, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types/agent";
+import { AgentEvidencePanel } from "./AgentEvidencePanel";
 
 type Props = {
   messages: ChatMessage[];
@@ -106,6 +107,10 @@ export function AgentChat({ messages, status, canSend, onSend }: Props) {
                       ))}
                     </div>
                   </div>
+                ) : null}
+
+                {showExtras && message.evidence && message.evidence.length > 0 ? (
+                  <AgentEvidencePanel evidence={message.evidence} />
                 ) : null}
 
                 {showExtras && message.evidence && message.evidence.length > 0 ? (

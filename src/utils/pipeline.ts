@@ -59,6 +59,9 @@ export function getMappedComponents(result: PipelineResult | CircuitAnalysisResu
         pins: comp.pins.map((pin) => ({
           pin_id: pin.pin_id,
           pin_name: pin.pin_name,
+          pin_display_name: pin.pin_display_name,
+          polarity_role: pin.polarity_role,
+          polarity_candidate_role: pin.polarity_candidate_role,
           hole_id: pin.hole_id,
           electrical_node_id: pin.electrical_node_id,
         })),

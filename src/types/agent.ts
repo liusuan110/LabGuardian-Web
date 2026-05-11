@@ -10,7 +10,14 @@ export type AgentAskRequest = {
   station_id: string;
   query: string;
   user_message?: string;
-  mode: "diagnose" | "rag" | "diagnostic_agent" | string;
+  mode:
+    | "diagnose"
+    | "rag"
+    | "diagnostic_agent"
+    | "agent_auto"
+    | "concept_tutor"
+    | "lab_guidance"
+    | string;
   top_k: number;
   chat_history?: AgentChatHistoryItem[];
   diagnosis_context?: Record<string, unknown>;

@@ -26,6 +26,32 @@ export type ReferenceSummary = {
   net_count: number;
 };
 
+export type LogicalReferenceNet = {
+  net: string;
+  role?: "input" | "output" | "power" | "ground" | "signal" | string;
+  label?: string;
+  role_label?: string;
+};
+
+export type LogicalReferenceComponent = {
+  ref_id: string;
+  type: string;
+  pins: Array<{ pin: string; net: string }>;
+  value?: string;
+  subtype?: string;
+  description?: string;
+};
+
+export type LogicalReference = {
+  format: "logical_reference_v1";
+  reference_id: string;
+  name?: string;
+  description?: string;
+  nets: LogicalReferenceNet[];
+  components: LogicalReferenceComponent[];
+  symmetry_groups?: unknown[];
+};
+
 export type PipelineRequest = {
   station_id: string;
   images_b64: string[];
@@ -45,16 +71,24 @@ export type ManualCorrectionPatch = {
   source: "manual_drag";
 };
 
-export type ManualNetRole = "VCC" | "VEE" | "GND" | "UI1" | "UI2" | "UO1" | "UO2";
+export type ManualNetRole = "input" | "output" | "power" | "ground" | "signal";
 
 export type ManualNetRoleAssignment = {
   role: ManualNetRole;
+  role_label?: string | null;
   source?: "manual_netlist_select";
   component_id?: string | null;
   pin_name?: string | null;
   hole_id?: string | null;
   electrical_node_id?: string | null;
   electrical_net_id?: string | null;
+};
+
+export type ManualPinPolarityAssignment = {
+  component_id: string;
+  pin_name: string;
+  polarity: "E" | "B" | "C";
+  source?: "manual_pin_polarity_select";
 };
 
 export type CorrectedRecomputeRequest = {
@@ -66,6 +100,7 @@ export type CorrectedRecomputeRequest = {
   reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
   net_role_assignments?: ManualNetRoleAssignment[];
+  pin_polarity_assignments?: ManualPinPolarityAssignment[];
 };
 
 export type Detection = {
@@ -83,6 +118,9 @@ export type Detection = {
 export type Pin = {
   pin_id?: number;
   pin_name?: string;
+  pin_display_name?: string;
+  polarity_role?: string;
+  polarity_candidate_role?: string;
   keypoints_by_view?: Record<string, number[] | null>;
   confidence?: number;
   source?: string;
@@ -152,7 +190,13 @@ export type ComparisonReport = {
     ignore_hole_id?: boolean;
     ignore_passive_pin_order?: boolean;
     ignore_polarity?: boolean;
+    match_type?: string;
+    progress?: number;
+    strict_functional_pin_roles?: boolean;
+    equivalence_rule?: string;
   };
+  ref_to_current_component_mapping?: Record<string, string>;
+  ref_to_current_net_mapping?: Record<string, string>;
   items?: ComparisonReportItem[];
 };
 
@@ -222,6 +266,9 @@ export type VersionInfo = {
 export type PinLocation = {
   pin_id: number;
   pin_name: string;
+  pin_display_name?: string;
+  polarity_role?: string;
+  polarity_candidate_role?: string;
   hole_id: string;
   logic_loc?: [string, string];
   x_warp?: number;
