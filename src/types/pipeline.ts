@@ -26,6 +26,32 @@ export type ReferenceSummary = {
   net_count: number;
 };
 
+export type LogicalReferenceNet = {
+  net: string;
+  role?: "input" | "output" | "power" | "ground" | "signal" | string;
+  label?: string;
+  role_label?: string;
+};
+
+export type LogicalReferenceComponent = {
+  ref_id: string;
+  type: string;
+  pins: Array<{ pin: string; net: string }>;
+  value?: string;
+  subtype?: string;
+  description?: string;
+};
+
+export type LogicalReference = {
+  format: "logical_reference_v1";
+  reference_id: string;
+  name?: string;
+  description?: string;
+  nets: LogicalReferenceNet[];
+  components: LogicalReferenceComponent[];
+  symmetry_groups?: unknown[];
+};
+
 export type PipelineRequest = {
   station_id: string;
   images_b64: string[];
@@ -45,10 +71,11 @@ export type ManualCorrectionPatch = {
   source: "manual_drag";
 };
 
-export type ManualNetRole = "VIN" | "VOUT" | "VCC" | "GND";
+export type ManualNetRole = "input" | "output" | "power" | "ground" | "signal";
 
 export type ManualNetRoleAssignment = {
   role: ManualNetRole;
+  role_label?: string | null;
   source?: "manual_netlist_select";
   component_id?: string | null;
   pin_name?: string | null;
@@ -163,7 +190,13 @@ export type ComparisonReport = {
     ignore_hole_id?: boolean;
     ignore_passive_pin_order?: boolean;
     ignore_polarity?: boolean;
+    match_type?: string;
+    progress?: number;
+    strict_functional_pin_roles?: boolean;
+    equivalence_rule?: string;
   };
+  ref_to_current_component_mapping?: Record<string, string>;
+  ref_to_current_net_mapping?: Record<string, string>;
   items?: ComparisonReportItem[];
 };
 

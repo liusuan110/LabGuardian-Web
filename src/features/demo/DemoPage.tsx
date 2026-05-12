@@ -30,20 +30,26 @@ function parseComparisonReport(result: unknown): ComparisonReport | null {
   return cr as ComparisonReport;
 }
 
+const SEVERITY_ORDER: Record<string, number> = {
+  fatal: 0,
+  error: 1,
+  warning: 2,
+  info: 3,
+};
+
 export function DemoPage() {
   const [state, dispatch] = useReducer(demoReducer, initialDemoState);
   useBackendStatus(dispatch);
-  useReferences(dispatch);
+  useReferences(dispatch, state.selectedReferenceId);
   const { send } = useAgentChat(state, dispatch);
   const { execute } = usePipelineRun(state, dispatch, send);
 
   const cr = parseComparisonReport(state.pipelineResult);
   const rawItems = cr?.items ?? [];
-  const comparisonItems = rawItems.filter((item) => {
-    const code = String(item.error_code ?? "");
-    if (code === "HOLE_MISMATCH") return false;
-    if (code === "POLARITY_REVERSED" || code === "POLARITY_UNKNOWN") return false;
-    return true;
+  const comparisonItems = [...rawItems].sort((a, b) => {
+    const sa = SEVERITY_ORDER[String(a.severity ?? "warning")] ?? 99;
+    const sb = SEVERITY_ORDER[String(b.severity ?? "warning")] ?? 99;
+    return sa - sb;
   });
   const highlightTargets: EvidenceRef[] =
     state.selectedDiagnosticIndex != null
@@ -91,7 +97,7 @@ export function DemoPage() {
       return;
     }
     if (corrections.length === 0 && netRoleAssignments.length === 0 && pinPolarityAssignments.length === 0) {
-      dispatch({ type: "run-error", error: "请先修改孔位、网络角色，或手动指定三极管引脚极性。" });
+      dispatch({ type: "run-error", error: "请先修改孔位、标注端口语义，或手动指定三极管 E/B/C。" });
       return;
     }
 
@@ -150,6 +156,9 @@ export function DemoPage() {
             selectedReferenceId={state.selectedReferenceId}
             status={state.referenceStatus}
             error={state.referenceError}
+            currentReference={state.currentReference}
+            currentReferenceStatus={state.currentReferenceStatus}
+            currentReferenceError={state.currentReferenceError}
             onChange={(referenceId) =>
               dispatch({ type: "select-reference", referenceId })
             }
@@ -179,6 +188,7 @@ export function DemoPage() {
                 onApplyCorrections={handleApplyCorrections}
                 isApplyingCorrections={state.runState === "running"}
                 selectedReferenceId={state.selectedReferenceId}
+                currentReference={state.currentReference}
                 netRoleAssignments={state.manualNetRoleAssignments}
                 onNetRoleChange={(key, assignment) =>
                   dispatch({ type: "set-manual-net-role", key, assignment })

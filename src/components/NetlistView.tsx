@@ -1,5 +1,6 @@
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, EvidenceRef } from "../types/pipeline";
+import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, EvidenceRef, LogicalReference } from "../types/pipeline";
 import { BreadboardView } from "./BreadboardView";
+import { NetRoleAssignmentPanel } from "./NetRoleAssignmentPanel";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -9,6 +10,7 @@ type Props = {
   onApplyCorrections: () => void;
   isApplyingCorrections?: boolean;
   selectedReferenceId?: string | null;
+  currentReference?: LogicalReference | null;
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
@@ -30,6 +32,7 @@ export function NetlistView({
   onApplyCorrections,
   isApplyingCorrections,
   selectedReferenceId,
+  currentReference = null,
   netRoleAssignments,
   onNetRoleChange,
   onResetNetRoles,
@@ -38,22 +41,38 @@ export function NetlistView({
   onPinPolarityChange,
   onResetPinPolarities,
 }: Props) {
+  const roles = netRoleAssignments ?? new Map<string, ManualNetRoleAssignment>();
+
   return (
-    <BreadboardView
-      result={result}
-      corrections={corrections}
-      onCorrectionChange={onCorrectionChange}
-      onResetCorrections={onResetCorrections}
-      onApplyCorrections={onApplyCorrections}
-      isApplyingCorrections={isApplyingCorrections}
-      selectedReferenceId={selectedReferenceId}
-      netRoleAssignments={netRoleAssignments}
-      onNetRoleChange={onNetRoleChange}
-      onResetNetRoles={onResetNetRoles}
-      highlightTargets={highlightTargets}
-      pinPolarityAssignments={pinPolarityAssignments}
-      onPinPolarityChange={onPinPolarityChange}
-      onResetPinPolarities={onResetPinPolarities}
-    />
+    <>
+      {onNetRoleChange && onResetNetRoles ? (
+        <NetRoleAssignmentPanel
+          result={result}
+          currentReference={currentReference}
+          netRoleAssignments={roles}
+          onNetRoleChange={onNetRoleChange}
+          onResetNetRoles={onResetNetRoles}
+          onApplyCorrections={onApplyCorrections}
+          isApplyingCorrections={isApplyingCorrections}
+        />
+      ) : null}
+      <BreadboardView
+        result={result}
+        corrections={corrections}
+        onCorrectionChange={onCorrectionChange}
+        onResetCorrections={onResetCorrections}
+        onApplyCorrections={onApplyCorrections}
+        isApplyingCorrections={isApplyingCorrections}
+        selectedReferenceId={selectedReferenceId}
+        currentReference={currentReference}
+        netRoleAssignments={roles}
+        onNetRoleChange={onNetRoleChange}
+        onResetNetRoles={onResetNetRoles}
+        highlightTargets={highlightTargets}
+        pinPolarityAssignments={pinPolarityAssignments}
+        onPinPolarityChange={onPinPolarityChange}
+        onResetPinPolarities={onResetPinPolarities}
+      />
+    </>
   );
 }

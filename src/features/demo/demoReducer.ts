@@ -1,5 +1,15 @@
 import type { AgentAction, AgentProgressPhase, AgentStatusResponse, ChatMessage } from "../../types/agent";
-import type { PipelineResult, PipelineStageName, RailAssignments, VersionInfo, CircuitAnalysisResult, PortVisualizationResult, ReferenceSummary, ManualNetRoleAssignment } from "../../types/pipeline";
+import type {
+  PipelineResult,
+  PipelineStageName,
+  RailAssignments,
+  VersionInfo,
+  CircuitAnalysisResult,
+  PortVisualizationResult,
+  ReferenceSummary,
+  ManualNetRoleAssignment,
+  LogicalReference,
+} from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
 
@@ -36,6 +46,9 @@ export type DemoState = {
   selectedReferenceId: string | null;
   referenceStatus: "idle" | "loading" | "success" | "error";
   referenceError: string;
+  currentReference: LogicalReference | null;
+  currentReferenceStatus: "idle" | "loading" | "success" | "error";
+  currentReferenceError: string;
   selectedDiagnosticIndex: number | null;
 };
 
@@ -68,6 +81,10 @@ export type DemoAction =
   | { type: "references-success"; references: ReferenceSummary[] }
   | { type: "references-error"; error: string }
   | { type: "select-reference"; referenceId: string | null }
+  | { type: "current-reference-loading" }
+  | { type: "current-reference-success"; reference: LogicalReference }
+  | { type: "current-reference-error"; error: string }
+  | { type: "clear-current-reference" }
   | { type: "select-diagnostic"; index: number | null }
   | { type: "clear-selected-diagnostic" };
 
@@ -104,6 +121,9 @@ export const initialDemoState: DemoState = {
   selectedReferenceId: null,
   referenceStatus: "idle",
   referenceError: "",
+  currentReference: null,
+  currentReferenceStatus: "idle",
+  currentReferenceError: "",
   selectedDiagnosticIndex: null,
 };
 
@@ -401,7 +421,10 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       };
     case "references-loading":
       return { ...state, referenceStatus: "loading", referenceError: "" };
-    case "references-success":
+    case "references-success": {
+      const preferredReference =
+        action.references.find((item) => item.reference_id === "diff_pair_current_source_ref") ??
+        action.references[0];
       return {
         ...state,
         referenceStatus: "success",
@@ -409,9 +432,10 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         referenceError: "",
         selectedReferenceId:
           state.selectedReferenceId ??
-          action.references[0]?.reference_id ??
+          preferredReference?.reference_id ??
           null,
       };
+    }
     case "references-error":
       return {
         ...state,
@@ -422,6 +446,37 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return {
         ...state,
         selectedReferenceId: action.referenceId,
+        currentReference: null,
+        currentReferenceStatus: action.referenceId ? "loading" : "idle",
+        currentReferenceError: "",
+        manualNetRoleAssignments: new Map(),
+      };
+    case "current-reference-loading":
+      return {
+        ...state,
+        currentReferenceStatus: "loading",
+        currentReferenceError: "",
+      };
+    case "current-reference-success":
+      return {
+        ...state,
+        currentReference: action.reference,
+        currentReferenceStatus: "success",
+        currentReferenceError: "",
+      };
+    case "current-reference-error":
+      return {
+        ...state,
+        currentReference: null,
+        currentReferenceStatus: "error",
+        currentReferenceError: action.error,
+      };
+    case "clear-current-reference":
+      return {
+        ...state,
+        currentReference: null,
+        currentReferenceStatus: "idle",
+        currentReferenceError: "",
       };
     case "select-diagnostic":
       return { ...state, selectedDiagnosticIndex: action.index };

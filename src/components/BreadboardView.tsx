@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, ManualNetRole, EvidenceRef } from "../types/pipeline";
+import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, EvidenceRef, LogicalReference } from "../types/pipeline";
 import {
   ALL_STRIPS,
   BREADBOARD_COLS,
@@ -15,6 +15,7 @@ import {
   type RailKind,
   type StripKind,
 } from "../utils/breadboard";
+import { normalizeReferenceRole, referenceNetLabel, referenceNetOptionLabel } from "../utils/referenceRoles";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -24,6 +25,7 @@ type Props = {
   onApplyCorrections: () => void;
   isApplyingCorrections?: boolean;
   selectedReferenceId?: string | null;
+  currentReference?: LogicalReference | null;
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
@@ -181,6 +183,7 @@ export function BreadboardView({
   onApplyCorrections,
   isApplyingCorrections = false,
   selectedReferenceId = null,
+  currentReference = null,
   netRoleAssignments = new Map(),
   onNetRoleChange,
   onResetNetRoles,
@@ -249,15 +252,19 @@ export function BreadboardView({
     );
   }, [model]);
 
-  function handleRoleChange(pin: BreadboardPinRef, role: string) {
+  function handleRoleChange(pin: BreadboardPinRef, refNetName: string) {
     if (!onNetRoleChange) return;
-    const key = `${pin.componentId}.${pin.pinName}`;
-    if (!role) {
+    const key = `net:${pin.electricalNetId}`;
+    if (!refNetName) {
       onNetRoleChange(key, null);
       return;
     }
+    const refNet = currentReference?.nets.find((item) => item.net === refNetName);
+    if (!refNet) return;
+    const roleLabel = referenceNetLabel(refNet);
     const assignment: ManualNetRoleAssignment = {
-      role: role as ManualNetRole,
+      role: normalizeReferenceRole(refNet.role, roleLabel),
+      role_label: roleLabel,
       source: "manual_netlist_select",
       component_id: pin.componentId,
       pin_name: pin.pinName,
@@ -1148,19 +1155,22 @@ export function BreadboardView({
         </div>
       ) : null}
 
-      {/* 引脚网络角色选择 */}
+      {/* Pin/hole quick semantic tagging. Net-level tagging above is the primary workflow. */}
       {allPins.length > 0 ? (
         <div className="bb-pin-role-panel">
           <div className="panel-heading">
-            <h2>引脚网络角色</h2>
+            <h2>Pin 快捷端口标注</h2>
             <span>
               {netRoleAssignments.size > 0 ? (
-                <span className="manual-role-summary">已指定 {netRoleAssignments.size} 个角色</span>
+                <span className="manual-role-summary">已标注 {netRoleAssignments.size} 个网络</span>
               ) : (
-                <span className="manual-role-summary">未指定</span>
+                <span className="manual-role-summary">未标注</span>
               )}
             </span>
           </div>
+          <p className="muted">
+            这里仍可从某个 pin/hole 快速标注它所在的 electrical_net_id。主要建议使用上方按 net 的端口语义标注；三极管 E/B/C 用于功能引脚匹配，不是孔位参考匹配。
+          </p>
           <div className="bb-pin-role-table-wrap">
             <table className="bb-pin-role-table">
               <thead>
@@ -1176,7 +1186,10 @@ export function BreadboardView({
               <tbody>
                 {allPins.map((pin) => {
                   const key = `${pin.componentId}.${pin.pinName}`;
-                  const assignment = netRoleAssignments.get(key);
+                  const netKey = `net:${pin.electricalNetId}`;
+                  const assignment = netRoleAssignments.get(netKey);
+                  const selectedRefNet =
+                    currentReference?.nets.find((refNet) => referenceNetLabel(refNet) === assignment?.role_label)?.net ?? "";
                   return (
                     <tr key={key}>
                       <td>{pin.componentId}</td>
@@ -1202,14 +1215,16 @@ export function BreadboardView({
                       <td>
                         <select
                           className="net-role-select"
-                          value={assignment?.role ?? ""}
+                          value={selectedRefNet}
                           onChange={(e) => handleRoleChange(pin, e.target.value)}
+                          disabled={!currentReference}
                         >
-                          <option value="">无</option>
-                          <option value="VIN">VIN / 输入</option>
-                          <option value="VOUT">VOUT / 输出</option>
-                          <option value="VCC">VCC / 正电</option>
-                          <option value="GND">GND / 地</option>
+                          <option value="">不标注</option>
+                          {currentReference?.nets.map((refNet) => (
+                            <option key={refNet.net} value={refNet.net}>
+                              {referenceNetOptionLabel(refNet)}
+                            </option>
+                          ))}
                         </select>
                       </td>
                     </tr>
@@ -1230,24 +1245,24 @@ export function BreadboardView({
           disabled={(corrections.size === 0 && netRoleAssignments.size === 0 && pinPolarityAssignments.size === 0) || isApplyingCorrections}
           title={
             selectedReferenceId
-              ? "将手工修正提交给后端，重算拓扑并与参考电路比较"
+              ? "将手工修正提交给后端，重算拓扑并与逻辑参考电路比较"
               : "将手工修正提交给后端并重算拓扑"
           }
         >
           {isApplyingCorrections
             ? "正在重算..."
             : selectedReferenceId
-              ? "确认修正并与参考电路比较"
+              ? "确认修正并与逻辑参考电路比较"
               : "确认修正并重算网表"}
         </button>
         <div className="manual-correction-meta">
           {corrections.size > 0 || netRoleAssignments.size > 0 || pinPolarityAssignments.size > 0 ? (
             <div className="manual-correction-counts">
               {corrections.size > 0 ? (
-                <span>孔位修正 {corrections.size} 项</span>
+                <span>当前 netlist 修正 {corrections.size} 项</span>
               ) : null}
               {netRoleAssignments.size > 0 ? (
-                <span>网络角色 {netRoleAssignments.size} 项</span>
+                <span>端口语义标注 {netRoleAssignments.size} 项</span>
               ) : null}
               {pinPolarityAssignments.size > 0 ? (
                 <span>引脚极性 {pinPolarityAssignments.size} 项</span>
@@ -1257,12 +1272,12 @@ export function BreadboardView({
           <div className="manual-correction-reset-btns">
             {corrections.size > 0 ? (
               <button type="button" className="bb-reset-btn" onClick={onResetCorrections}>
-                ↺ 重置孔位修正
+                ↺ 重置当前 netlist 修正
               </button>
             ) : null}
             {netRoleAssignments.size > 0 && onResetNetRoles ? (
               <button type="button" className="bb-reset-btn" onClick={onResetNetRoles}>
-                ↺ 重置网络角色
+                ↺ 重置端口语义标注
               </button>
             ) : null}
             {pinPolarityAssignments.size > 0 && onResetPinPolarities ? (
@@ -1273,8 +1288,9 @@ export function BreadboardView({
           </div>
         </div>
         <p className="muted">
-          你可以只选择 VIN/VOUT/VCC/GND，不修改孔位，也可以提交比较。
-          这些角色会标记到该 pin 所在的电气网络，而不是只标记单个孔。
+          手动孔位修正只用于修正当前识别结果，不代表参考电路固定孔位。
+          端口语义标注会写到该 pin 所在的 electrical_net_id，并携带 role 与 role_label 交给后端做拓扑比较。
+          三极管 E/B/C 用于功能引脚匹配，不是孔位参考匹配。
         </p>
       </div>
 
