@@ -54,6 +54,8 @@ export type AgentJobResult = {
   station_id: string;
   mode: string;
   answer: string;
+  actual_llm_provider?: string;
+  actual_llm_model?: string;
   follow_up_suggestions?: string[];
   citations: AgentCitation[];
   evidence: AgentEvidence[];

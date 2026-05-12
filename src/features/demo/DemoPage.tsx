@@ -49,6 +49,10 @@ export function DemoPage() {
     state.selectedDiagnosticIndex != null
       ? (comparisonItems[state.selectedDiagnosticIndex]?.evidence_refs ?? [])
       : [];
+  const actualProvider = state.agentResult?.result?.actual_llm_provider ?? "";
+  const actualModel = state.agentResult?.result?.actual_llm_model ?? "";
+  const actualModelLabel =
+    actualProvider && actualModel ? `本次模型: ${actualModel} (${actualProvider})` : "";
 
   async function handleFileSelected(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -204,6 +208,7 @@ export function DemoPage() {
         messages={state.chatMessages}
         status={state.agentStatus}
         canSend={Boolean(state.pipelineResult)}
+        modelLabel={actualModelLabel}
         onSend={(message) => send(message)}
       />
 

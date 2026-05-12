@@ -8,9 +8,10 @@ type Props = {
   status: "idle" | "running" | "success" | "error";
   canSend: boolean;
   onSend: (message: string) => Promise<void>;
+  modelLabel?: string;
 };
 
-export function AgentChat({ messages, status, canSend, onSend }: Props) {
+export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }: Props) {
   const [draft, setDraft] = useState("");
   const isRunning = status === "running";
   const threadRef = useRef<HTMLDivElement>(null);
@@ -43,16 +44,19 @@ export function AgentChat({ messages, status, canSend, onSend }: Props) {
           <Bot size={18} />
           上下文诊断对话
         </h2>
-        <span className="chat-status">
-          {isRunning ? (
-            <>
-              <Loader2 size={14} className="spin" />
-              Agent 思考中
-            </>
-          ) : (
-            "可追问"
-          )}
-        </span>
+        <div className="chat-heading-meta">
+          {modelLabel ? <span className="chat-model">{modelLabel}</span> : null}
+          <span className="chat-status">
+            {isRunning ? (
+              <>
+                <Loader2 size={14} className="spin" />
+                Agent 思考中
+              </>
+            ) : (
+              "可追问"
+            )}
+          </span>
+        </div>
       </div>
 
       <div className="chat-thread" ref={threadRef}>

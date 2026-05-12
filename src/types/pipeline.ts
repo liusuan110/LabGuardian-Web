@@ -227,6 +227,8 @@ export type VersionInfo = {
   model_version?: string;
   kb_version?: string;
   rule_version?: string;
+  agent_llm_provider?: string;
+  agent_llm_model?: string;
   [key: string]: unknown;
 };
 

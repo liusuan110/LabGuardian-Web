@@ -12,6 +12,10 @@ function extractJobId(result: PipelineResult | CircuitAnalysisResult | PortVisua
   return "";
 }
 
+function getStageData(result: PipelineResult, stage: string) {
+  return result.stages.find((item) => item.stage === stage)?.data ?? {};
+}
+
 function buildDiagnosisContext(
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null,
 ) {
@@ -33,6 +37,10 @@ function buildDiagnosisContext(
   }
 
   const pipelineResult = result as PipelineResult;
+  const topology = getStageData(pipelineResult, "topology");
+  const validate = getStageData(pipelineResult, "validate");
+  const semantic = getStageData(pipelineResult, "semantic_analysis");
+  const comparisonReport = pipelineResult.comparison_report ?? validate.comparison_report ?? {};
   return {
     job_id: pipelineResult.job_id ?? "",
     risk_level: pipelineResult.risk_level ?? "unknown",
@@ -42,6 +50,13 @@ function buildDiagnosisContext(
     similarity: pipelineResult.similarity ?? 0,
     diagnostics: pipelineResult.diagnostics ?? [],
     risk_reasons: pipelineResult.risk_reasons ?? [],
+    comparison_report: comparisonReport,
+    validator_report_v2: comparisonReport,
+    netlist_v2: topology.netlist_v2 ?? {},
+    topology_graph: topology.topology_graph ?? {},
+    circuit_snapshot: topology.circuit_description ?? semantic.student_hint ?? "",
+    circuit_type_guess: semantic.circuit_type_guess ?? {},
+    matched_template: semantic.matched_template ?? {},
     runtime_metadata: pipelineResult.runtime_metadata ?? {},
   };
 }
