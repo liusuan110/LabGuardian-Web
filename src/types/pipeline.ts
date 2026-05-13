@@ -52,6 +52,23 @@ export type LogicalReference = {
   symmetry_groups?: unknown[];
 };
 
+export type PinSelector = {
+  hole_id?: string | null;
+  component_id?: string | null;
+  pin_name?: string | null;
+  electrical_net_id?: string | null;
+  electrical_node_id?: string | null;
+  x_image?: number | null;
+  y_image?: number | null;
+};
+
+export type PortAnnotation = {
+  role: "input" | "output";
+  target: PinSelector;
+  label?: string | null;
+  source?: "port_annotation";
+};
+
 export type PipelineRequest = {
   station_id: string;
   images_b64: string[];
@@ -61,6 +78,8 @@ export type PipelineRequest = {
   reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
   rail_assignments?: RailAssignments;
+  port_annotations?: PortAnnotation[];
+  net_role_assignments?: ManualNetRoleAssignment[];
 };
 
 export type ManualCorrectionPatch = {
@@ -99,6 +118,7 @@ export type CorrectedRecomputeRequest = {
   rail_assignments?: RailAssignments;
   reference_id?: string | null;
   reference_circuit?: Record<string, unknown> | null;
+  port_annotations?: PortAnnotation[];
   net_role_assignments?: ManualNetRoleAssignment[];
   pin_polarity_assignments?: ManualPinPolarityAssignment[];
 };
@@ -177,6 +197,30 @@ export type ComparisonReportItem = {
   suggested_action?: string;
 };
 
+export type InferredNetRole = {
+  reference_net?: string;
+  current_net?: string;
+  role?: string;
+  role_label?: string;
+  source?: string;
+};
+
+export type AutoSymmetryGroup = {
+  mode?: string;
+  nets?: string[][];
+};
+
+export type PortAnnotationApplied = {
+  role?: string;
+  role_label?: string;
+  electrical_net_id?: string;
+  source?: string;
+  resolved_by?: string;
+  hole_id?: string;
+  component_id?: string;
+  pin_name?: string;
+};
+
 export type ComparisonReport = {
   version?: string;
   summary?: {
@@ -190,10 +234,17 @@ export type ComparisonReport = {
     ignore_hole_id?: boolean;
     ignore_passive_pin_order?: boolean;
     ignore_polarity?: boolean;
+    allow_extra_wires?: boolean;
     match_type?: string;
     progress?: number;
     strict_functional_pin_roles?: boolean;
     equivalence_rule?: string;
+    role_inference_applied?: boolean;
+    inferred_net_roles?: InferredNetRole[];
+    auto_symmetry_groups?: AutoSymmetryGroup[];
+    port_annotations_applied?: PortAnnotationApplied[];
+    ref_to_current_component_mapping?: Record<string, string>;
+    ref_to_current_net_mapping?: Record<string, string>;
   };
   ref_to_current_component_mapping?: Record<string, string>;
   ref_to_current_net_mapping?: Record<string, string>;

@@ -199,9 +199,20 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
   const ignoreHoleId = summary?.ignore_hole_id === true;
   const ignorePassivePinOrder = summary?.ignore_passive_pin_order === true;
   const ignorePolarity = summary?.ignore_polarity === true;
+  const allowExtraWires = summary?.allow_extra_wires === true;
   const strictFunctionalPinRoles = summary?.strict_functional_pin_roles === true;
-  const componentMapping = mappingEntries(cr?.ref_to_current_component_mapping);
-  const netMapping = mappingEntries(cr?.ref_to_current_net_mapping);
+  const componentMapping = mappingEntries(
+    cr?.ref_to_current_component_mapping ?? summary?.ref_to_current_component_mapping,
+  );
+  const netMapping = mappingEntries(
+    cr?.ref_to_current_net_mapping ?? summary?.ref_to_current_net_mapping,
+  );
+  const inferredNetRoles = Array.isArray(summary?.inferred_net_roles) ? summary.inferred_net_roles : [];
+  const roleInferenceApplied = summary?.role_inference_applied === true || inferredNetRoles.length > 0;
+  const autoSymmetryGroups = Array.isArray(summary?.auto_symmetry_groups) ? summary.auto_symmetry_groups : [];
+  const portAnnotationsApplied = Array.isArray(summary?.port_annotations_applied)
+    ? summary.port_annotations_applied
+    : [];
 
   const sortedItems = [...items].sort((a, b) => {
     const sa = SEVERITY_ORDER[String(a.severity ?? "warning")] ?? 99;
@@ -264,12 +275,13 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
           <p className="comparison-summary-hint">
             逻辑参考电路用于拓扑比较，不要求孔位一致，不要求元件编号一致；系统按元件类型、网络连接关系和端口语义标注判断。
           </p>
-          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder || ignorePolarity || strictFunctionalPinRoles) ? (
+          {(ignoreComponentId || ignoreHoleId || ignorePassivePinOrder || ignorePolarity || allowExtraWires || strictFunctionalPinRoles) ? (
             <div className="comparison-ignore-badges">
               {ignoreComponentId ? <span className="ignore-badge">忽略元件编号</span> : null}
               {ignoreHoleId ? <span className="ignore-badge">忽略具体孔位</span> : null}
               {ignorePassivePinOrder ? <span className="ignore-badge">无极性两脚元件允许引脚互换</span> : null}
               {ignorePolarity ? <span className="ignore-badge">忽略极性</span> : null}
+              {allowExtraWires ? <span className="ignore-badge">允许额外连线</span> : null}
               {strictFunctionalPinRoles ? <span className="ignore-badge">严格功能引脚角色</span> : null}
             </div>
           ) : null}
@@ -305,6 +317,78 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
             <p className="comparison-summary-hint">
               发现 {items.length} 处与参考电路不一致，详见下方。
             </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* ===== 系统自动推断 / 对称识别 / 端口标注摘要 ===== */}
+      {isLogicalGraph && (roleInferenceApplied || autoSymmetryGroups.length > 0 || portAnnotationsApplied.length > 0) ? (
+        <section className="side-section">
+          <h2>系统自动行为</h2>
+          {roleInferenceApplied ? (
+            <article className="diagnostic-item severity-info">
+              <div className="diagnostic-item-head">
+                <strong>系统已推断 {inferredNetRoles.length} 个网络角色</strong>
+              </div>
+              {inferredNetRoles.length > 0 ? (
+                <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                  {inferredNetRoles.map((entry, idx) => (
+                    <li key={`inferred-${idx}`}>
+                      <code>{entry.current_net ?? "?"}</code>
+                      {" → "}
+                      <code>{entry.reference_net ?? "?"}</code>
+                      {" · "}
+                      {entry.role ?? "?"}
+                      {entry.role_label ? ` (${entry.role_label})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="diagnostic-item-meta">
+                未由用户明确标注的网络由系统从拓扑反推角色，结果若不正确可在"高级：网络角色全标注"中覆盖。
+              </p>
+            </article>
+          ) : null}
+          {autoSymmetryGroups.length > 0 ? (
+            <article className="diagnostic-item severity-info">
+              <div className="diagnostic-item-head">
+                <strong>自动识别的对称组</strong>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {autoSymmetryGroups.flatMap((group, gi) =>
+                  (group.nets ?? []).map((pair, pi) => (
+                    <span
+                      key={`sym-${gi}-${pi}`}
+                      className="ignore-badge"
+                      style={{ background: "rgba(99, 102, 241, 0.12)" }}
+                    >
+                      {Array.isArray(pair) ? pair.join(" ↔ ") : String(pair)}
+                    </span>
+                  )),
+                )}
+              </div>
+              <p className="diagnostic-item-meta">
+                这些参考网络的标签可在比较时互换（如差分对的 UI1 ↔ UI2）。
+              </p>
+            </article>
+          ) : null}
+          {portAnnotationsApplied.length > 0 ? (
+            <article className="diagnostic-item severity-info">
+              <div className="diagnostic-item-head">
+                <strong>已应用 {portAnnotationsApplied.length} 个端口标注</strong>
+              </div>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {portAnnotationsApplied.map((entry, idx) => (
+                  <li key={`pa-${idx}`}>
+                    <code>{entry.electrical_net_id ?? "?"}</code>
+                    {" · "}
+                    {entry.role ?? "?"}
+                    {entry.role_label ? ` (${entry.role_label})` : ""}
+                    {entry.resolved_by ? ` · 来源:${entry.resolved_by}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </article>
           ) : null}
         </section>
       ) : null}

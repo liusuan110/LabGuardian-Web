@@ -2,6 +2,7 @@ import type { AgentAction, AgentProgressPhase, AgentStatusResponse, ChatMessage 
 import type {
   PipelineResult,
   PipelineStageName,
+  PortAnnotation,
   RailAssignments,
   VersionInfo,
   CircuitAnalysisResult,
@@ -35,6 +36,7 @@ export type DemoState = {
   activeMode: CanvasMode;
   pipelineResult: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
   manualCorrections: Map<string, string>;
+  portAnnotations: Map<string, PortAnnotation>;
   manualNetRoleAssignments: Map<string, ManualNetRoleAssignment>;
   manualPinPolarityAssignments: Map<string, "E" | "B" | "C">;
   agentStatus: "idle" | "running" | "success" | "error";
@@ -60,6 +62,8 @@ export type DemoAction =
   | { type: "set-mode"; mode: CanvasMode }
   | { type: "set-manual-corrections"; corrections: Map<string, string> }
   | { type: "reset-manual-corrections" }
+  | { type: "set-port-annotation"; key: string; annotation: PortAnnotation | null }
+  | { type: "reset-port-annotations" }
   | { type: "set-manual-net-role"; key: string; assignment: ManualNetRoleAssignment | null }
   | { type: "reset-manual-net-roles" }
   | { type: "set-manual-pin-polarity"; key: string; polarity: "E" | "B" | "C" | null }
@@ -110,6 +114,7 @@ export const initialDemoState: DemoState = {
   activeMode: "detect",
   pipelineResult: null,
   manualCorrections: new Map(),
+  portAnnotations: new Map(),
   manualNetRoleAssignments: new Map(),
   manualPinPolarityAssignments: new Map(),
   agentStatus: "idle",
@@ -152,6 +157,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         error: "",
         pipelineResult: null,
         manualCorrections: new Map(),
+        portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
         agentResult: null,
@@ -173,9 +179,21 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return {
         ...state,
         manualCorrections: new Map(),
+        portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
       };
+    case "set-port-annotation": {
+      const next = new Map(state.portAnnotations);
+      if (action.annotation === null) {
+        next.delete(action.key);
+      } else {
+        next.set(action.key, action.annotation);
+      }
+      return { ...state, portAnnotations: next };
+    }
+    case "reset-port-annotations":
+      return { ...state, portAnnotations: new Map() };
     case "set-manual-net-role": {
       const next = new Map(state.manualNetRoleAssignments);
       if (action.assignment === null) {
@@ -204,6 +222,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         runState: "running",
         error: "",
         manualCorrections: new Map(),
+        portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
         agentStatus: "idle",
@@ -449,6 +468,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         currentReference: null,
         currentReferenceStatus: action.referenceId ? "loading" : "idle",
         currentReferenceError: "",
+        portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
       };
     case "current-reference-loading":

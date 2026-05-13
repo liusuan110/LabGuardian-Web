@@ -3743,3 +3743,38 @@ summary:focus-visible,
   letter-spacing: 0.06em;
 }
 
+.net-role-advanced {
+  margin: 12px 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-soft, #fafafa);
+}
+
+.net-role-advanced > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+  list-style: none;
+}
+
+.net-role-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.net-role-advanced > summary::before {
+  content: "▶";
+  font-size: 10px;
+  color: var(--text-secondary, #6b7280);
+  transition: transform 0.15s ease;
+}
+
+.net-role-advanced[open] > summary::before {
+  transform: rotate(90deg);
+}
+

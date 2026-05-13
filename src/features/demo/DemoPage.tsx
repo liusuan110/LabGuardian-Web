@@ -14,6 +14,7 @@ import { recomputeCorrected } from "../../api/pipeline";
 import { buildCorrectionPatch } from "../../utils/breadboard";
 import { fileToBase64 } from "../../utils/file";
 import { getStageData } from "../../utils/pipeline";
+import { portAnnotationsToList } from "../../utils/portAnnotation";
 import type { PipelineComponent, PipelineResult, EvidenceRef, ComparisonReport } from "../../types/pipeline";
 import { demoReducer, initialDemoState } from "./demoReducer";
 import { useAgentChat } from "./useAgentChat";
@@ -79,6 +80,7 @@ export function DemoPage() {
 
     const components = (getStageData(result, "mapping").components ?? []) as PipelineComponent[];
     const corrections = buildCorrectionPatch(result, state.manualCorrections);
+    const portAnnotations = portAnnotationsToList(state.portAnnotations);
     const netRoleAssignments = Array.from(state.manualNetRoleAssignments.values());
     const pinPolarityAssignments = Array.from(state.manualPinPolarityAssignments.entries()).map(
       ([key, polarity]) => {
@@ -96,8 +98,16 @@ export function DemoPage() {
       dispatch({ type: "run-error", error: "没有可提交的 mapping components。" });
       return;
     }
-    if (corrections.length === 0 && netRoleAssignments.length === 0 && pinPolarityAssignments.length === 0) {
-      dispatch({ type: "run-error", error: "请先修改孔位、标注端口语义，或手动指定三极管 E/B/C。" });
+    if (
+      corrections.length === 0 &&
+      portAnnotations.length === 0 &&
+      netRoleAssignments.length === 0 &&
+      pinPolarityAssignments.length === 0
+    ) {
+      dispatch({
+        type: "run-error",
+        error: "请先标注端口、修改孔位，或在高级面板中指定网络角色 / 三极管 E/B/C。",
+      });
       return;
     }
 
@@ -108,6 +118,7 @@ export function DemoPage() {
         job_id: result.job_id,
         components,
         corrections,
+        port_annotations: portAnnotations,
         net_role_assignments: netRoleAssignments,
         pin_polarity_assignments: pinPolarityAssignments,
         rail_assignments: state.rails,
@@ -182,6 +193,7 @@ export function DemoPage() {
                 onCorrectionChange={(corrections) => dispatch({ type: "set-manual-corrections", corrections })}
                 onResetCorrections={() => {
                   dispatch({ type: "reset-manual-corrections" });
+                  dispatch({ type: "reset-port-annotations" });
                   dispatch({ type: "reset-manual-net-roles" });
                   dispatch({ type: "reset-manual-pin-polarities" });
                 }}
@@ -189,6 +201,11 @@ export function DemoPage() {
                 isApplyingCorrections={state.runState === "running"}
                 selectedReferenceId={state.selectedReferenceId}
                 currentReference={state.currentReference}
+                portAnnotations={state.portAnnotations}
+                onPortAnnotationChange={(key, annotation) =>
+                  dispatch({ type: "set-port-annotation", key, annotation })
+                }
+                onResetPortAnnotations={() => dispatch({ type: "reset-port-annotations" })}
                 netRoleAssignments={state.manualNetRoleAssignments}
                 onNetRoleChange={(key, assignment) =>
                   dispatch({ type: "set-manual-net-role", key, assignment })

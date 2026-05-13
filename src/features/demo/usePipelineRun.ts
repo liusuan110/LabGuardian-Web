@@ -1,5 +1,6 @@
 import { runPipeline, analyzeCircuit, visualizePorts } from "../../api/pipeline";
 import type { CircuitAnalysisResult, PipelineStageName, PortVisualizationResult } from "../../types/pipeline";
+import { portAnnotationsToList } from "../../utils/portAnnotation";
 import type { DemoAction, DemoState } from "./demoReducer";
 
 const STAGE_RHYTHM: Array<{ stage: PipelineStageName; durationMs: number }> = [
@@ -65,6 +66,8 @@ export function usePipelineRun(
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
+        port_annotations: portAnnotationsToList(state.portAnnotations),
+        net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
       });
       stopProgress();
       dispatch({ type: "run-success", result: pipeline });
@@ -92,6 +95,8 @@ export function usePipelineRun(
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
+        port_annotations: portAnnotationsToList(state.portAnnotations),
+        net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
       });
 
       console.log("电路分析完成:", result);
@@ -122,6 +127,8 @@ export function usePipelineRun(
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
         rail_assignments: state.rails,
+        port_annotations: portAnnotationsToList(state.portAnnotations),
+        net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
       });
 
       console.log("端口可视化完成:", result);
