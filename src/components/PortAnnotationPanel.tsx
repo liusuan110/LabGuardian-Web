@@ -9,7 +9,7 @@ import type {
 import { getStageData } from "../utils/pipeline";
 import {
   isPortReferenceNet,
-  isRailReferenceNet,
+  normalizeReferenceRole,
   referenceNetLabel,
 } from "../utils/referenceRoles";
 import { buildPortAnnotation, portAnnotationKey } from "../utils/portAnnotation";
@@ -22,17 +22,21 @@ type Props = {
   onResetPortAnnotations: () => void;
   onApplyAnnotations: () => void;
   isApplying?: boolean;
-  // 用于检测端口与高级网络全标注的冲突，给出红字提示
+  // 用于检测端口与高级网络全标注的冲突，给出提示
   netRoleAssignmentKeys?: Set<string>;
 };
 
-type CurrentNetRow = {
+type CurrentNetCandidate = {
   electricalNetId: string;
   powerRole?: string;
   roleLabel?: string;
   componentCount: number;
   holeCount: number;
+  /** true = 已被识别为电源/地轨道，不是 input/output 候选 */
+  isRail: boolean;
 };
+
+const RAIL_LABELS = new Set(["VCC", "VEE", "VDD", "VSS", "GND"]);
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -43,7 +47,17 @@ function stringField(record: Record<string, unknown>, key: string): string | und
   return typeof value === "string" && value ? value : undefined;
 }
 
-function getCurrentNets(result: Props["result"]): CurrentNetRow[] {
+function isRailRecord(record: Record<string, unknown>): boolean {
+  const power = (stringField(record, "power_role") || "").toUpperCase();
+  if (RAIL_LABELS.has(power)) return true;
+  const role = (stringField(record, "role") || stringField(record, "manual_role") || "").toLowerCase();
+  if (role === "power" || role === "ground") return true;
+  const label = (stringField(record, "role_label") || "").toUpperCase();
+  if (RAIL_LABELS.has(label)) return true;
+  return false;
+}
+
+function getCandidateNets(result: Props["result"]): CurrentNetCandidate[] {
   if (!result) return [];
 
   if ("stages" in result) {
@@ -69,6 +83,7 @@ function getCurrentNets(result: Props["result"]): CurrentNetRow[] {
           roleLabel: stringField(record, "role_label"),
           componentCount: components.size,
           holeCount: holes.size,
+          isRail: isRailRecord(record),
         },
       ];
     });
@@ -85,12 +100,24 @@ function getCurrentNets(result: Props["result"]): CurrentNetRow[] {
           powerRole: stringField(record, "power_role"),
           componentCount: 0,
           holeCount: Array.isArray(record.member_hole_ids) ? record.member_hole_ids.length : 0,
+          isRail: isRailRecord(record),
         },
       ];
     });
   }
 
   return [];
+}
+
+function describeCandidate(candidate: CurrentNetCandidate): string {
+  const parts = [candidate.electricalNetId];
+  if (candidate.componentCount || candidate.holeCount) {
+    parts.push(`${candidate.componentCount}元/${candidate.holeCount}孔`);
+  }
+  if (candidate.powerRole) {
+    parts.push(candidate.powerRole);
+  }
+  return parts.join(" · ");
 }
 
 export function PortAnnotationPanel({
@@ -103,50 +130,55 @@ export function PortAnnotationPanel({
   isApplying = false,
   netRoleAssignmentKeys,
 }: Props) {
-  const currentNets = getCurrentNets(result);
+  const candidates = getCandidateNets(result);
+  const portCandidates = candidates.filter((net) => !net.isRail);
   const referenceNets = currentReference?.nets ?? [];
   const portRefNets = referenceNets.filter(isPortReferenceNet);
-  const railRefNets = referenceNets.filter(isRailReferenceNet);
 
-  const usedLabels = new Set(
-    Array.from(portAnnotations.values())
-      .map((annotation) => (annotation.label || "").toUpperCase())
-      .filter(Boolean),
-  );
-  const allPortLabels = portRefNets.map(referenceNetLabel);
-  const missingPortLabels = allPortLabels.filter((label) => !usedLabels.has(label.toUpperCase()));
-  const duplicateLabels = Array.from(
-    Array.from(portAnnotations.values())
-      .map((annotation) => (annotation.label || "").toUpperCase())
-      .filter(Boolean)
-      .reduce((counts, label) => counts.set(label, (counts.get(label) ?? 0) + 1), new Map<string, number>()),
-  )
-    .filter(([, count]) => count > 1)
-    .map(([label]) => label);
+  // 反向索引：currentNetId -> 已标注到哪个参考端口
+  const annotationByNetId = new Map<string, PortAnnotation>();
+  for (const annotation of portAnnotations.values()) {
+    const netId = annotation.target.electrical_net_id;
+    if (netId) annotationByNetId.set(netId, annotation);
+  }
 
-  function handleSelect(currentNet: CurrentNetRow, refNetName: string) {
-    const key = portAnnotationKey(currentNet.electricalNetId);
-    if (!refNetName) {
-      onPortAnnotationChange(key, null);
-      return;
+  // 当前参考端口已被哪个 currentNet 占用（用于在其它行的下拉里灰掉）
+  const portRefToNetId = new Map<string, string>();
+  for (const annotation of portAnnotations.values()) {
+    const label = (annotation.label || "").toUpperCase();
+    const netId = annotation.target.electrical_net_id;
+    if (label && netId) portRefToNetId.set(label, netId);
+  }
+
+  function handleSelect(refNet: LogicalReferenceNet, electricalNetId: string) {
+    const refLabel = referenceNetLabel(refNet).toUpperCase();
+    // 清掉同一参考端口之前的标注
+    const previousNetId = portRefToNetId.get(refLabel);
+    if (previousNetId) onPortAnnotationChange(portAnnotationKey(previousNetId), null);
+
+    if (!electricalNetId) return;
+
+    // 同一 currentNet 不能既是 X 又是 Y：清掉它之前的标注
+    if (annotationByNetId.has(electricalNetId)) {
+      onPortAnnotationChange(portAnnotationKey(electricalNetId), null);
     }
-    const refNet = portRefNets.find((item) => item.net === refNetName);
-    if (!refNet) return;
-    const annotation = buildPortAnnotation(refNet, currentNet.electricalNetId);
-    if (annotation) onPortAnnotationChange(key, annotation);
+
+    const annotation = buildPortAnnotation(refNet, electricalNetId);
+    if (annotation) onPortAnnotationChange(portAnnotationKey(electricalNetId), annotation);
   }
 
   return (
     <section className="net-role-panel">
       <div className="panel-heading">
         <div>
-          <h2>端口标注（最小标注）</h2>
+          <h2>端口标注</h2>
           <p className="muted">
-            只需为当前电路选出输入/输出端口（如 UI1 / UO1）。VCC / GND 由上方电源轨指定，其它内部网络由系统自动推断。
+            为参考电路的每个输入/输出端口指定它对应当前电路的哪个网络。VCC/GND 已通过电源轨指定，无需在此重复；
+            候选只显示信号网络（自动过滤已分配到电源/地轨的网络）。
           </p>
         </div>
         <span className="manual-role-summary">
-          已标注 {portAnnotations.size} / {portRefNets.length} 个端口
+          已标注 {portAnnotations.size} / {portRefNets.length}
         </span>
       </div>
 
@@ -154,87 +186,69 @@ export function PortAnnotationPanel({
         <p className="muted">请先选择逻辑参考电路。</p>
       ) : null}
       {currentReference && portRefNets.length === 0 ? (
-        <p className="muted">
-          当前参考电路未声明输入/输出端口，无需端口标注。
-          {railRefNets.length > 0
-            ? "电源/地由上方电源轨指定即可。"
-            : ""}
-        </p>
+        <p className="muted">当前参考电路未声明输入/输出端口，无需标注。</p>
       ) : null}
-      {currentReference && portRefNets.length > 0 && currentNets.length === 0 ? (
+      {currentReference && portRefNets.length > 0 && portCandidates.length === 0 ? (
         <p className="muted">完成 S3 拓扑阶段后即可标注端口。</p>
       ) : null}
 
-      {duplicateLabels.length > 0 ? (
-        <div className="bb-warning-panel" role="status">
-          {duplicateLabels.map((label) => (
-            <p key={label}>{label} 被分配给多个当前网络，请确认。</p>
-          ))}
-        </div>
-      ) : null}
-
-      {missingPortLabels.length > 0 && portRefNets.length > 0 && currentNets.length > 0 ? (
-        <div className="bb-warning-panel" role="status">
-          以下参考端口尚未标注：{missingPortLabels.join("、")}。未标注的端口角色将由系统从拓扑反推。
-        </div>
-      ) : null}
-
-      {currentReference && portRefNets.length > 0 && currentNets.length > 0 ? (
+      {currentReference && portRefNets.length > 0 && portCandidates.length > 0 ? (
         <div className="bb-pin-role-table-wrap">
           <table className="bb-pin-role-table net-role-table">
             <thead>
               <tr>
-                <th>当前网络</th>
-                <th>连接规模</th>
-                <th>当前提示</th>
                 <th>参考端口</th>
+                <th>角色</th>
+                <th>当前网络</th>
               </tr>
             </thead>
             <tbody>
-              {currentNets.map((net) => {
-                const key = portAnnotationKey(net.electricalNetId);
-                const annotation = portAnnotations.get(key);
-                const selectedNet =
-                  portRefNets.find(
-                    (refNet) =>
-                      referenceNetLabel(refNet).toUpperCase() === (annotation?.label || "").toUpperCase(),
-                  )?.net ?? "";
-                const conflictedByAdvanced = netRoleAssignmentKeys?.has(key) ?? false;
+              {portRefNets.map((refNet) => {
+                const refLabel = referenceNetLabel(refNet);
+                const role = normalizeReferenceRole(refNet.role, refLabel);
+                const selectedNetId = portRefToNetId.get(refLabel.toUpperCase()) ?? "";
                 return (
-                  <tr key={key}>
-                    <td className="net-cell">{net.electricalNetId}</td>
-                    <td>
-                      {net.componentCount} 元件 · {net.holeCount} 孔位
+                  <tr key={refNet.net}>
+                    <td className="net-cell">
+                      <strong>{refLabel}</strong>
                     </td>
                     <td>
-                      {net.powerRole ? <span className="bb-role-tag">{net.powerRole}</span> : null}
-                      {annotation?.label ? (
-                        <span className={`net-role-badge role-${annotation.role}`}>
-                          {annotation.label}
-                        </span>
-                      ) : net.roleLabel ? (
-                        <span className="muted">{net.roleLabel}</span>
-                      ) : (
-                        <span className="muted">-</span>
-                      )}
-                      {conflictedByAdvanced ? (
-                        <span className="net-role-badge role-output" style={{ marginLeft: 6 }}>
-                          已被高级面板覆盖
-                        </span>
-                      ) : null}
+                      <span className={`net-role-badge role-${role}`}>{role}</span>
                     </td>
                     <td>
                       <select
                         className="net-role-select"
-                        value={selectedNet}
-                        onChange={(event) => handleSelect(net, event.target.value)}
+                        value={selectedNetId}
+                        onChange={(event) => handleSelect(refNet, event.target.value)}
                       >
-                        <option value="">不标注</option>
-                        {portRefNets.map((refNet) => (
-                          <option key={refNet.net} value={refNet.net}>
-                            {referenceNetLabel(refNet)} · {refNet.role}
-                          </option>
-                        ))}
+                        <option value="">未标注（由系统推断）</option>
+                        {portCandidates.map((candidate) => {
+                          const netId = candidate.electricalNetId;
+                          const occupiedByOther = Array.from(portRefToNetId.entries()).some(
+                            ([label, occupiedNetId]) =>
+                              occupiedNetId === netId && label !== refLabel.toUpperCase(),
+                          );
+                          const conflictedByAdvanced =
+                            netRoleAssignmentKeys?.has(portAnnotationKey(netId)) ?? false;
+                          return (
+                            <option
+                              key={netId}
+                              value={netId}
+                              disabled={occupiedByOther}
+                              title={
+                                occupiedByOther
+                                  ? "该网络已被分配给其它端口"
+                                  : conflictedByAdvanced
+                                    ? "该网络在高级面板里已被手动覆盖"
+                                    : undefined
+                              }
+                            >
+                              {describeCandidate(candidate)}
+                              {occupiedByOther ? "（已用）" : ""}
+                              {conflictedByAdvanced ? "（高级覆盖）" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     </td>
                   </tr>
