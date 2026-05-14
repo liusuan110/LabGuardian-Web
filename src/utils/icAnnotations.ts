@@ -11,8 +11,6 @@ import { getDetections, getMappedComponents, getPinComponents } from "./pipeline
 
 type PipelineLikeResult = PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
 
-const IC_KEYWORDS = ["ic", "integrated", "chip", "dip"];
-
 function normalizeText(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
@@ -22,11 +20,10 @@ export function normalizePackageType(packageType: string | undefined): string {
 }
 
 export function isIcLikeComponent(component: Pick<PipelineComponent, "component_type" | "class_name" | "package_type">): boolean {
-  const packageType = normalizePackageType(component.package_type);
-  if (packageType.startsWith("dip")) return true;
+  if ((component.component_type ?? "").trim().toUpperCase() === "IC") return true;
 
-  const labels = [component.component_type, component.class_name].map(normalizeText).filter(Boolean);
-  return labels.some((label) => IC_KEYWORDS.some((keyword) => label === keyword || label.includes(keyword)));
+  const packageType = normalizePackageType(component.package_type);
+  return packageType === "dip8" || packageType === "dip14";
 }
 
 function detectionToComponent(detection: Detection): PipelineComponent {

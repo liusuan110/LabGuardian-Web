@@ -62,6 +62,23 @@ export function IcAnnotationPanel({
 
   if (!result) return null;
 
+  if (icComponents.length === 0) {
+    return (
+      <section className="net-role-panel ic-annotation-panel collapsed">
+        <div className="panel-heading">
+          <div>
+            <h2>
+              <Cpu size={18} />
+              IC 缺口方向标注
+            </h2>
+          </div>
+          <span className="manual-role-summary">未检测到 IC</span>
+        </div>
+        <p className="muted">未检测到 IC，缺口方向标注已折叠。</p>
+      </section>
+    );
+  }
+
   return (
     <section className="net-role-panel ic-annotation-panel">
       <div className="panel-heading">
@@ -71,86 +88,78 @@ export function IcAnnotationPanel({
             IC 缺口方向标注
           </h2>
           <p className="muted">
-            这里只确认芯片缺口方向。封装类型由后端根据模型类别或检测框覆盖列数识别，前端不选择 DIP8 / DIP14。
+            这里只确认芯片缺口方向。芯片筛选仅使用后端 component_type=IC，或后端明确返回 dip8/dip14。
           </p>
         </div>
-        <span className="manual-role-summary">
-          {icComponents.length > 0 ? `IC ${icComponents.length} 个` : "未检测到 IC"}
-        </span>
+        <span className="manual-role-summary">IC {icComponents.length} 个</span>
       </div>
 
-      {icComponents.length === 0 ? (
-        <p className="muted">当前结果中没有可标注缺口方向的 IC。</p>
-      ) : (
-        <>
-          {hasUnknownDirection ? (
-            <div className="bb-warning-panel" role="status">
-              <p>缺口方向未确认，引脚序号可能不准确。</p>
-            </div>
-          ) : null}
+      {hasUnknownDirection ? (
+        <div className="bb-warning-panel" role="status">
+          <p>缺口方向未确认，引脚序号可能不准确。</p>
+        </div>
+      ) : null}
 
-          <div className="bb-pin-role-table-wrap">
-            <table className="bb-pin-role-table ic-annotation-table">
-              <thead>
-                <tr>
-                  <th>IC</th>
-                  <th>后端封装类型</th>
-                  <th>缺口方向</th>
+      <div className="bb-pin-role-table-wrap">
+        <table className="bb-pin-role-table ic-annotation-table">
+          <thead>
+            <tr>
+              <th>component_id</th>
+              <th>后端 package_type</th>
+              <th>notch_direction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {icComponents.map((component) => {
+              const componentId = component.component_id ?? "";
+              const direction = getIcNotchDirection(icAnnotations, componentId);
+              return (
+                <tr key={componentId}>
+                  <td className="net-cell">{componentId}</td>
+                  <td>
+                    <span className="component-type">{displayPackageType(component.package_type)}</span>
+                  </td>
+                  <td>
+                    <select
+                      className="net-role-select"
+                      value={direction}
+                      onChange={(event) =>
+                        handleDirectionChange(
+                          componentId,
+                          component.package_type,
+                          event.target.value as IcNotchDirection,
+                        )
+                      }
+                    >
+                      {NOTCH_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {icComponents.map((component) => {
-                  const componentId = component.component_id ?? "";
-                  const direction = getIcNotchDirection(icAnnotations, componentId);
-                  return (
-                    <tr key={componentId}>
-                      <td className="net-cell">{componentId}</td>
-                      <td>
-                        <span className="component-type">{displayPackageType(component.package_type)}</span>
-                      </td>
-                      <td>
-                        <select
-                          className="net-role-select"
-                          value={direction}
-                          onChange={(event) =>
-                            handleDirectionChange(
-                              componentId,
-                              component.package_type,
-                              event.target.value as IcNotchDirection,
-                            )
-                          }
-                        >
-                          {NOTCH_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-          <div className="manual-correction-actions compact-actions">
-            <button
-              type="button"
-              className="run-button correction-compare-button"
-              onClick={onApplyAnnotations}
-              disabled={isApplying}
-            >
-              {isApplying ? "正在重新计算..." : "应用 IC 缺口方向并重新计算"}
-            </button>
-            {icAnnotations.size > 0 ? (
-              <button type="button" className="bb-reset-btn" onClick={onResetIcAnnotations}>
-                重置 IC 方向标注
-              </button>
-            ) : null}
-          </div>
-        </>
-      )}
+      <div className="manual-correction-actions compact-actions">
+        <button
+          type="button"
+          className="run-button correction-compare-button"
+          onClick={onApplyAnnotations}
+          disabled={isApplying}
+        >
+          {isApplying ? "正在重新计算..." : "应用 IC 缺口方向并重新计算"}
+        </button>
+        {icAnnotations.size > 0 ? (
+          <button type="button" className="bb-reset-btn" onClick={onResetIcAnnotations}>
+            重置 IC 方向标注
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }
