@@ -11,6 +11,153 @@ type Props = {
   modelLabel?: string;
 };
 
+type ReportBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "heading"; text: string }
+  | { type: "list"; items: string[] }
+  | { type: "callout"; variant: "safety" | "source" | "note"; text: string };
+
+const SECTION_HEADINGS = new Set([
+  "结论",
+  "依据",
+  "建议",
+  "具体建议",
+  "接线建议",
+  "追问建议",
+  "引导追问",
+  "安全提醒",
+  "知识来源",
+  "引用",
+]);
+
+function cleanInlineMarkdown(text: string) {
+  return text.replace(/\*\*/g, "").replace(/^[-*]\s+/, "").trim();
+}
+
+function splitHeading(line: string): { heading: string; rest: string } | null {
+  const match = line.match(/^([\u4e00-\u9fa5A-Za-z /_-]{2,12})[:：]\s*(.*)$/);
+  if (!match) return null;
+  const heading = match[1].trim();
+  if (!SECTION_HEADINGS.has(heading)) return null;
+  return { heading, rest: match[2].trim() };
+}
+
+function parseReportBlocks(text: string): ReportBlock[] {
+  const lines = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const blocks: ReportBlock[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      blocks.push({ type: "list", items: listItems });
+      listItems = [];
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const heading = splitHeading(line);
+    if (heading) {
+      flushList();
+      if (heading.heading === "安全提醒") {
+        blocks.push({ type: "callout", variant: "safety", text: heading.rest || line });
+      } else if (heading.heading === "知识来源" || heading.heading === "引用") {
+        blocks.push({ type: "callout", variant: "source", text: heading.rest || line });
+      } else {
+        blocks.push({ type: "heading", text: heading.heading });
+        if (heading.rest) {
+          blocks.push({ type: "paragraph", text: heading.rest });
+        }
+      }
+      continue;
+    }
+
+    const listMatch = line.match(/^(\d+[.)、]|[-*])\s*(.+)$/);
+    if (listMatch) {
+      listItems.push(cleanInlineMarkdown(listMatch[2]));
+      continue;
+    }
+
+    if (/^(安全提醒|知识来源|引用)[:：]/.test(line)) {
+      flushList();
+      blocks.push({
+        type: line.startsWith("安全提醒") ? "callout" : "callout",
+        variant: line.startsWith("安全提醒") ? "safety" : "source",
+        text: line.replace(/^(安全提醒|知识来源|引用)[:：]\s*/, ""),
+      });
+      continue;
+    }
+
+    flushList();
+    blocks.push({ type: "paragraph", text: cleanInlineMarkdown(line) });
+  }
+  flushList();
+  return blocks;
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={idx}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={idx}>{part}</span>;
+  });
+}
+
+function AgentAnswerText({ text, streaming }: { text: string; streaming: boolean }) {
+  if (streaming) {
+    return (
+      <p className="chat-text streaming">
+        {text}
+        <span className="chat-caret" />
+      </p>
+    );
+  }
+  const blocks = parseReportBlocks(text);
+  if (blocks.length <= 1) {
+    return <p className="chat-text">{text}</p>;
+  }
+  return (
+    <div className="agent-report">
+      {blocks.map((block, idx) => {
+        if (block.type === "heading") {
+          return (
+            <h3 className="agent-report-heading" key={`${block.type}-${idx}`}>
+              {block.text}
+            </h3>
+          );
+        }
+        if (block.type === "list") {
+          return (
+            <ol className="agent-report-list" key={`${block.type}-${idx}`}>
+              {block.items.map((item, itemIdx) => (
+                <li key={`${idx}-${itemIdx}`}>{renderInline(item)}</li>
+              ))}
+            </ol>
+          );
+        }
+        if (block.type === "callout") {
+          return (
+            <div className={`agent-report-callout ${block.variant}`} key={`${block.type}-${idx}`}>
+              {renderInline(block.text)}
+            </div>
+          );
+        }
+        return (
+          <p className="agent-report-paragraph" key={`${block.type}-${idx}`}>
+            {renderInline(block.text)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }: Props) {
   const [draft, setDraft] = useState("");
   const isRunning = status === "running";
@@ -86,10 +233,11 @@ export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }
                     <span>{message.content}</span>
                   </div>
                 ) : (
-                  <p className={`chat-text ${isStreaming ? "streaming" : ""}`}>
-                    {displayText}
-                    {isStreaming ? <span className="chat-caret" /> : null}
-                  </p>
+                  isAssistant ? (
+                    <AgentAnswerText text={displayText} streaming={isStreaming} />
+                  ) : (
+                    <p className="chat-text">{displayText}</p>
+                  )
                 )}
 
                 {showExtras && message.citations && message.citations.length > 0 ? (

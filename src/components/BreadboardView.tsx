@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CircuitAnalysisResult, PipelineResult, PortVisualizationResult, ManualNetRoleAssignment, EvidenceRef, LogicalReference } from "../types/pipeline";
+import type {
+  CircuitAnalysisResult,
+  PipelineResult,
+  PortAnnotation,
+  PortVisualizationResult,
+  ManualNetRoleAssignment,
+  EvidenceRef,
+  LogicalReference,
+  LogicalReferenceNet,
+} from "../types/pipeline";
 import {
   ALL_STRIPS,
   BREADBOARD_COLS,
@@ -15,7 +24,12 @@ import {
   type RailKind,
   type StripKind,
 } from "../utils/breadboard";
-import { normalizeReferenceRole, referenceNetLabel, referenceNetOptionLabel } from "../utils/referenceRoles";
+import { buildPortAnnotation, portAnnotationKey } from "../utils/portAnnotation";
+import {
+  isPortReferenceNet,
+  normalizeReferenceRole,
+  referenceNetLabel,
+} from "../utils/referenceRoles";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -26,6 +40,9 @@ type Props = {
   isApplyingCorrections?: boolean;
   selectedReferenceId?: string | null;
   currentReference?: LogicalReference | null;
+  portAnnotations?: Map<string, PortAnnotation>;
+  onPortAnnotationChange?: (key: string, annotation: PortAnnotation | null) => void;
+  onResetPortAnnotations?: () => void;
   netRoleAssignments?: Map<string, ManualNetRoleAssignment>;
   onNetRoleChange?: (key: string, assignment: ManualNetRoleAssignment | null) => void;
   onResetNetRoles?: () => void;
@@ -184,6 +201,9 @@ export function BreadboardView({
   isApplyingCorrections = false,
   selectedReferenceId = null,
   currentReference = null,
+  portAnnotations = new Map(),
+  onPortAnnotationChange,
+  onResetPortAnnotations,
   netRoleAssignments = new Map(),
   onNetRoleChange,
   onResetNetRoles,
@@ -196,9 +216,50 @@ export function BreadboardView({
   const [hover, setHover] = useState<Hover>(null);
   const [hoverNet, setHoverNet] = useState<string | null>(null);
   const [selectedNet, setSelectedNet] = useState<string | null>(null);
+  const [activePortRefNet, setActivePortRefNet] = useState<string | null>(null);
   const activeNet = hoverNet ?? selectedNet;
   const [drag, setDrag] = useState<DragState | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const portRefNets = useMemo(
+    () => (currentReference?.nets ?? []).filter(isPortReferenceNet),
+    [currentReference],
+  );
+
+  const annotationByNetId = useMemo(() => {
+    const map = new Map<string, PortAnnotation>();
+    for (const annotation of portAnnotations.values()) {
+      const netId = annotation.target.electrical_net_id;
+      if (netId) map.set(netId, annotation);
+    }
+    return map;
+  }, [portAnnotations]);
+
+  const portRefToNetId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const annotation of portAnnotations.values()) {
+      const label = (annotation.label ?? "").toUpperCase();
+      const netId = annotation.target.electrical_net_id;
+      if (label && netId) map.set(label, netId);
+    }
+    return map;
+  }, [portAnnotations]);
+
+  const activePortRef = portRefNets.find((refNet) => refNet.net === activePortRefNet) ?? null;
+
+  useEffect(() => {
+    if (portRefNets.length === 0) {
+      setActivePortRefNet(null);
+      return;
+    }
+    setActivePortRefNet((current) => {
+      if (current && portRefNets.some((refNet) => refNet.net === current)) return current;
+      const firstUnassigned = portRefNets.find(
+        (refNet) => !portRefToNetId.has(referenceNetLabel(refNet).toUpperCase()),
+      );
+      return firstUnassigned?.net ?? portRefNets[0]?.net ?? null;
+    });
+  }, [portRefNets, portRefToNetId]);
 
   const highlightSets = useMemo(() => {
     const compIds = new Set<string>();
@@ -252,27 +313,73 @@ export function BreadboardView({
     );
   }, [model]);
 
-  function handleRoleChange(pin: BreadboardPinRef, refNetName: string) {
-    if (!onNetRoleChange) return;
-    const key = `net:${pin.electricalNetId}`;
-    if (!refNetName) {
-      onNetRoleChange(key, null);
+  function compactRoleClass(label: string | null | undefined, role: string) {
+    const normalizedLabel = (label ?? "").toLowerCase().replace(/[^a-z0-9_-]+/g, "");
+    return normalizedLabel || role;
+  }
+
+  function refNetRoleClass(refNet: LogicalReferenceNet): string {
+    const label = referenceNetLabel(refNet);
+    return compactRoleClass(label, normalizeReferenceRole(refNet.role, label));
+  }
+
+  function annotationRoleClass(annotation: PortAnnotation): string {
+    return compactRoleClass(annotation.label, annotation.role);
+  }
+
+  function pinsForNet(netId: string): BreadboardPinRef[] {
+    const pins: BreadboardPinRef[] = [];
+    for (const holePins of model.holes.values()) {
+      for (const pin of holePins) {
+        if (pin.netId === netId || pin.electricalNetId === netId) pins.push(pin);
+      }
+    }
+    return pins;
+  }
+
+  function assignPortRefToNet(refNet: LogicalReferenceNet, netId: string, pins?: BreadboardPinRef[]) {
+    if (!onPortAnnotationChange) return;
+    const refLabel = referenceNetLabel(refNet).toUpperCase();
+    const previousNetId = portRefToNetId.get(refLabel);
+    if (previousNetId && previousNetId !== netId) {
+      onPortAnnotationChange(portAnnotationKey(previousNetId), null);
+    }
+
+    const currentAnnotation = annotationByNetId.get(netId);
+    const currentLabel = (currentAnnotation?.label ?? "").toUpperCase();
+    if (currentAnnotation && currentLabel !== refLabel) {
+      onPortAnnotationChange(portAnnotationKey(netId), null);
+    }
+
+    const annotation = buildPortAnnotation(refNet, netId);
+    if (!annotation) return;
+    const pin = pins?.[0];
+    onPortAnnotationChange(portAnnotationKey(netId), {
+      ...annotation,
+      target: {
+        ...annotation.target,
+        component_id: pin?.componentId ?? annotation.target.component_id,
+        pin_name: pin?.pinName ?? annotation.target.pin_name,
+        hole_id: pin?.holeId ?? annotation.target.hole_id,
+        electrical_node_id: pin?.electricalNodeId ?? annotation.target.electrical_node_id,
+        electrical_net_id: pin?.electricalNetId ?? netId,
+      },
+    });
+    setSelectedNet(netId);
+
+    const nextRef = portRefNets.find((candidate) => {
+      const label = referenceNetLabel(candidate).toUpperCase();
+      return candidate.net !== refNet.net && !portRefToNetId.has(label);
+    });
+    setActivePortRefNet(nextRef?.net ?? refNet.net);
+  }
+
+  function handleVisualNetClick(netId: string, pins?: BreadboardPinRef[]) {
+    if (activePortRef && onPortAnnotationChange) {
+      assignPortRefToNet(activePortRef, netId, pins);
       return;
     }
-    const refNet = currentReference?.nets.find((item) => item.net === refNetName);
-    if (!refNet) return;
-    const roleLabel = referenceNetLabel(refNet);
-    const assignment: ManualNetRoleAssignment = {
-      role: normalizeReferenceRole(refNet.role, roleLabel),
-      role_label: roleLabel,
-      source: "manual_netlist_select",
-      component_id: pin.componentId,
-      pin_name: pin.pinName,
-      hole_id: pin.holeId,
-      electrical_node_id: pin.electricalNodeId,
-      electrical_net_id: pin.electricalNetId,
-    };
-    onNetRoleChange(key, assignment);
+    setSelectedNet((cur) => (cur === netId ? null : netId));
   }
 
   function handlePolarityChange(pin: BreadboardPinRef, polarity: string) {
@@ -461,6 +568,7 @@ export function BreadboardView({
 
   function resetCorrections() {
     onResetCorrections();
+    if (onResetPortAnnotations) onResetPortAnnotations();
     if (onResetNetRoles) onResetNetRoles();
   }
 
@@ -509,7 +617,7 @@ export function BreadboardView({
         <h2>面包板可视化网表</h2>
         <span>
           {usedNetIds.length} nets · {Array.from(model.holes.values()).reduce((sum, l) => sum + l.length, 0)} pins
-          {corrections.size > 0 || netRoleAssignments.size > 0 ? (
+          {corrections.size > 0 || portAnnotations.size > 0 || netRoleAssignments.size > 0 ? (
             <>
               {" "}
               ·{" "}
@@ -521,13 +629,70 @@ export function BreadboardView({
               >
                 ↺ 重置
                 {corrections.size > 0 ? ` ${corrections.size} 项孔位修正` : ""}
-                {corrections.size > 0 && netRoleAssignments.size > 0 ? " +" : ""}
+                {corrections.size > 0 && (portAnnotations.size > 0 || netRoleAssignments.size > 0) ? " +" : ""}
+                {portAnnotations.size > 0 ? ` ${portAnnotations.size} 项端口` : ""}
+                {portAnnotations.size > 0 && netRoleAssignments.size > 0 ? " +" : ""}
                 {netRoleAssignments.size > 0 ? ` ${netRoleAssignments.size} 项角色` : ""}
               </button>
             </>
           ) : null}
         </span>
       </div>
+
+      {portRefNets.length > 0 && onPortAnnotationChange ? (
+        <div className="board-role-toolbar">
+          <div className="board-role-buttons">
+            <button
+              type="button"
+              className={`board-role-button ${activePortRefNet === null ? "active" : ""}`}
+              onClick={() => setActivePortRefNet(null)}
+            >
+              浏览
+            </button>
+            {portRefNets.map((refNet) => {
+              const label = referenceNetLabel(refNet);
+              const role = normalizeReferenceRole(refNet.role, label);
+              const assignedNetId = portRefToNetId.get(label.toUpperCase());
+              return (
+                <button
+                  key={refNet.net}
+                  type="button"
+                  className={`board-role-button role-${refNetRoleClass(refNet)} ${activePortRefNet === refNet.net ? "active" : ""}${assignedNetId ? " assigned" : ""}`}
+                  onClick={() => setActivePortRefNet((current) => (current === refNet.net ? null : refNet.net))}
+                  title={assignedNetId ? `${label} -> ${assignedNetId}` : `${label} · ${role}`}
+                >
+                  <span className={`net-role-badge role-${role}`}>{role}</span>
+                  <strong>{label}</strong>
+                  <span className="board-role-target">{assignedNetId ?? "未绑定"}</span>
+                </button>
+              );
+            })}
+          </div>
+          {portAnnotations.size > 0 ? (
+            <div className="bb-role-summary-list">
+              {Array.from(portAnnotations.entries()).map(([key, annotation]) => {
+                const netId = annotation.target.electrical_net_id;
+                if (!netId) return null;
+                const label = annotation.label ?? annotation.role;
+                return (
+                  <span key={key} className={`bb-role-summary-item role-${annotationRoleClass(annotation)}`}>
+                    <span className={`net-role-badge role-${annotation.role}`}>{label}</span>
+                    <span className="bb-role-summary-target">{netId}</span>
+                    <button
+                      type="button"
+                      className="bb-role-remove-btn"
+                      onClick={() => onPortAnnotationChange(key, null)}
+                      title={`移除 ${label}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="breadboard-wrap">
         <svg
@@ -617,7 +782,7 @@ export function BreadboardView({
                     setHover(null);
                     setHoverNet(null);
                   }}
-                  onClick={() => setSelectedNet((cur) => (cur === usage.netId ? null : usage.netId))}
+                  onClick={() => handleVisualNetClick(usage.netId, usage.pins)}
                 >
                   <rect
                     x={g.x}
@@ -700,7 +865,7 @@ export function BreadboardView({
                 style={{ opacity: isDim ? 0.12 : 1 }}
                 onMouseEnter={() => setHoverNet(route.netId)}
                 onMouseLeave={() => setHoverNet(null)}
-                onClick={() => setSelectedNet((cur) => (cur === route.netId ? null : route.netId))}
+                onClick={() => handleVisualNetClick(route.netId, pinsForNet(route.netId))}
               >
                 <path className="bb-net-route-hit" d={route.d} />
                 <path className="bb-net-route-halo" d={route.d} />
@@ -723,24 +888,32 @@ export function BreadboardView({
                   />
                 ))}
                 <g className="bb-net-route-label">
-                  <rect
-                    x={route.labelX - 3}
-                    y={route.labelY - 9}
-                    width={Math.max(30, route.netId.length * 6.4 + 8)}
-                    height={13}
-                    rx={3}
-                    fill="#fff"
-                    stroke={route.color}
-                    strokeOpacity={0.75}
-                  />
-                  <text
-                    x={route.labelX + 1}
-                    y={route.labelY + 1}
-                    fill={route.color}
-                    className="bb-route-text"
-                  >
-                    {route.netId}
-                  </text>
+                  {(() => {
+                    const assigned = annotationByNetId.get(route.netId);
+                    const routeLabel = assigned?.label ? `${route.netId} · ${assigned.label}` : route.netId;
+                    return (
+                      <>
+                        <rect
+                          x={route.labelX - 3}
+                          y={route.labelY - 9}
+                          width={Math.max(30, routeLabel.length * 6.4 + 8)}
+                          height={13}
+                          rx={3}
+                          fill={assigned ? "#ecfdf5" : "#fff"}
+                          stroke={route.color}
+                          strokeOpacity={0.75}
+                        />
+                        <text
+                          x={route.labelX + 1}
+                          y={route.labelY + 1}
+                          fill={route.color}
+                          className="bb-route-text"
+                        >
+                          {routeLabel}
+                        </text>
+                      </>
+                    );
+                  })()}
                 </g>
                 <title>{`${route.netId} · ${route.role} · ${route.points.length} connected holes`}</title>
               </g>
@@ -851,6 +1024,7 @@ export function BreadboardView({
             const isDim = activeNet !== null && !isActive;
             const isAmbiguous = pins.some((p) => p.isAmbiguous);
             const isCorrected = pins.some((p) => p.userCorrected);
+            const assignedPort = annotationByNetId.get(netId);
             const dragPin = pins[0]; // 多 pin 同孔时拖第一根
             const anyPinCompHighlighted = pins.some((p) => highlightSets.compIds.has(p.componentId));
             const isHighlightedHole = highlightSets.holeIds.has(k) || anyPinCompHighlighted || highlightSets.netIds.has(netId);
@@ -879,12 +1053,13 @@ export function BreadboardView({
                 onMouseDown={(e) => {
                   // 仅左键 + 没有修饰键时进入拖拽模式
                   if (e.button !== 0 || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+                  if (activePortRef && onPortAnnotationChange) return;
                   startDrag(e, dragPin, k);
                 }}
                 onClick={() => {
                   // 拖拽结束的 click 已经被 mouseup 吞了；这里只处理纯点击
                   if (drag) return;
-                  setSelectedNet((cur) => (cur === netId ? null : netId));
+                  handleVisualNetClick(netId, pins);
                 }}
               >
                 <circle
@@ -918,6 +1093,16 @@ export function BreadboardView({
                     strokeDasharray="2 2"
                   />
                 ) : null}
+                {assignedPort ? (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={HOLE_R + 7}
+                    fill="none"
+                    stroke="#059669"
+                    strokeWidth={1.8}
+                  />
+                ) : null}
                 <circle
                   cx={pos.x}
                   cy={pos.y}
@@ -926,6 +1111,16 @@ export function BreadboardView({
                   stroke={isCorrected ? "#10b981" : isAmbiguous ? "#f59e0b" : isHighlightedHole ? "#be3144" : "#fff"}
                   strokeWidth={isCorrected || isAmbiguous || isHighlightedHole ? 1.8 : 1.4}
                 />
+                {assignedPort?.label ? (
+                  <text
+                    x={pos.x}
+                    y={pos.y - 11}
+                    textAnchor="middle"
+                    className="bb-port-label"
+                  >
+                    {assignedPort.label}
+                  </text>
+                ) : null}
               </g>
             );
           })}
@@ -1159,7 +1354,7 @@ export function BreadboardView({
       {allPins.length > 0 ? (
         <div className="bb-pin-role-panel">
           <div className="panel-heading">
-            <h2>Pin 快捷端口标注</h2>
+            <h2>Pin 快捷标注</h2>
             <span>
               {netRoleAssignments.size > 0 ? (
                 <span className="manual-role-summary">已标注 {netRoleAssignments.size} 个网络</span>
@@ -1169,7 +1364,7 @@ export function BreadboardView({
             </span>
           </div>
           <p className="muted">
-            这里仍可从某个 pin/hole 快速标注它所在的 electrical_net_id。主要建议使用上方按 net 的端口语义标注；三极管 E/B/C 用于功能引脚匹配，不是孔位参考匹配。
+            端口输入/输出已改为在上方可视化图中点选；这里仅保留三极管 E/B/C 与高级网络角色覆盖。
           </p>
           <div className="bb-pin-role-table-wrap">
             <table className="bb-pin-role-table">
@@ -1186,10 +1381,6 @@ export function BreadboardView({
               <tbody>
                 {allPins.map((pin) => {
                   const key = `${pin.componentId}.${pin.pinName}`;
-                  const netKey = `net:${pin.electricalNetId}`;
-                  const assignment = netRoleAssignments.get(netKey);
-                  const selectedRefNet =
-                    currentReference?.nets.find((refNet) => referenceNetLabel(refNet) === assignment?.role_label)?.net ?? "";
                   return (
                     <tr key={key}>
                       <td>{pin.componentId}</td>
@@ -1213,19 +1404,13 @@ export function BreadboardView({
                         )}
                       </td>
                       <td>
-                        <select
-                          className="net-role-select"
-                          value={selectedRefNet}
-                          onChange={(e) => handleRoleChange(pin, e.target.value)}
-                          disabled={!currentReference}
+                        <button
+                          type="button"
+                          className="bb-reset-btn"
+                          onClick={() => setSelectedNet((cur) => (cur === pin.netId ? null : pin.netId))}
                         >
-                          <option value="">不标注</option>
-                          {currentReference?.nets.map((refNet) => (
-                            <option key={refNet.net} value={refNet.net}>
-                              {referenceNetOptionLabel(refNet)}
-                            </option>
-                          ))}
-                        </select>
+                          聚焦网络
+                        </button>
                       </td>
                     </tr>
                   );

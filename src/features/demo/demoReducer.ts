@@ -438,7 +438,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
             {
               id: createClientId(),
               role: "assistant",
-              content: "回答生成失败，请稍后重试。",
+              content: action.error ? `回答生成失败：${action.error}` : "回答生成失败，请稍后重试。",
               createdAt: Date.now(),
               status: "error",
             },

@@ -11,7 +11,6 @@ import type {
 import { BreadboardView } from "./BreadboardView";
 import { IcAnnotationPanel } from "./IcAnnotationPanel";
 import { NetRoleAssignmentPanel } from "./NetRoleAssignmentPanel";
-import { PortAnnotationPanel } from "./PortAnnotationPanel";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -80,18 +79,6 @@ export function NetlistView({
           isApplying={isApplyingCorrections}
         />
       ) : null}
-      {onPortAnnotationChange && onResetPortAnnotations ? (
-        <PortAnnotationPanel
-          result={result}
-          currentReference={currentReference}
-          portAnnotations={ports}
-          onPortAnnotationChange={onPortAnnotationChange}
-          onResetPortAnnotations={onResetPortAnnotations}
-          onApplyAnnotations={onApplyCorrections}
-          isApplying={isApplyingCorrections}
-          netRoleAssignmentKeys={new Set(roles.keys())}
-        />
-      ) : null}
       {onNetRoleChange && onResetNetRoles ? (
         <details className="net-role-advanced">
           <summary>
@@ -121,6 +108,9 @@ export function NetlistView({
         isApplyingCorrections={isApplyingCorrections}
         selectedReferenceId={selectedReferenceId}
         currentReference={currentReference}
+        portAnnotations={ports}
+        onPortAnnotationChange={onPortAnnotationChange}
+        onResetPortAnnotations={onResetPortAnnotations}
         netRoleAssignments={roles}
         onNetRoleChange={onNetRoleChange}
         onResetNetRoles={onResetNetRoles}

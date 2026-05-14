@@ -889,6 +889,8 @@ h2 {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
 }
 
 .board-role-button:hover {
@@ -900,6 +902,13 @@ h2 {
   border-color: var(--accent);
   background: #e6f4f1;
   color: var(--accent-dark);
+  transform: translateY(-1px);
+}
+
+.board-role-button.assigned:not(.active) {
+  border-color: #a7f3d0;
+  background: #f0fdfa;
+  color: #0f766e;
 }
 
 .board-role-button.role-vcc.active {
@@ -957,6 +966,17 @@ h2 {
   font-size: 10px;
   font-weight: 800;
   max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-role-target {
+  max-width: 160px;
+  color: var(--muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2398,6 +2418,77 @@ h2 {
   margin: 0;
 }
 
+.agent-report {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.agent-report-paragraph {
+  margin: 0;
+}
+
+.agent-report-paragraph:first-child {
+  padding: 8px 10px;
+  border-left: 3px solid #0f766e;
+  border-radius: 6px;
+  background: #eefaf6;
+  font-weight: 650;
+}
+
+.agent-report-heading {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.agent-report-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.agent-report-list li {
+  padding-left: 2px;
+}
+
+.agent-report-list li::marker {
+  color: #0f766e;
+  font-weight: 800;
+}
+
+.agent-report strong {
+  color: #0f172a;
+  font-weight: 850;
+}
+
+.agent-report-callout {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.agent-report-callout.safety {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.agent-report-callout.source {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .chat-typing {
   display: flex;
   align-items: center;
@@ -2899,6 +2990,17 @@ h2 {
 .bb-text.rail {
   font-size: 11px;
   font-weight: 700;
+}
+
+.bb-port-label {
+  font-size: 8px;
+  font-weight: 900;
+  fill: #047857;
+  stroke: #fff;
+  stroke-width: 2px;
+  paint-order: stroke;
+  font-family: "JetBrains Mono", monospace;
+  pointer-events: none;
 }
 
 .bb-used {
@@ -3787,4 +3889,3 @@ summary:focus-visible,
 .net-role-advanced[open] > summary::before {
   transform: rotate(90deg);
 }
-
