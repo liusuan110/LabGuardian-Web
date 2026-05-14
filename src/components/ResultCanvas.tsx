@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import type { PipelineComponent, PipelineResult, CircuitAnalysisResult, PortVisualizationResult, EvidenceRef } from "../types/pipeline";
+import type {
+  CircuitAnalysisResult,
+  EvidenceRef,
+  Pin,
+  PipelineComponent,
+  PipelineResult,
+  PortVisualizationResult,
+} from "../types/pipeline";
 import type { CanvasMode } from "../types/ui";
-import { getDetections, getMappedComponents, getPinComponents, getStageData } from "../utils/pipeline";
+import { isIcLikeComponent, normalizePackageType } from "../utils/icAnnotations";
+import { getDetections, getMappedComponents, getPinComponents } from "../utils/pipeline";
 
 type Props = {
   imageUrl: string;
@@ -38,7 +46,14 @@ function drawBox(ctx: CanvasRenderingContext2D, bbox: number[], label: string, c
 }
 
 function topPoint(component: PipelineComponent, pinIndex: number) {
-  return component.pins?.[pinIndex]?.keypoints_by_view?.top ?? null;
+  const pin = component.pins?.[pinIndex];
+  if (!pin) return null;
+  const top = pin.keypoints_by_view?.top;
+  if (top) return top;
+  if (typeof pin.x_image === "number" && typeof pin.y_image === "number") {
+    return [pin.x_image, pin.y_image];
+  }
+  return null;
 }
 
 function drawPin(
@@ -116,29 +131,66 @@ function drawComponents(
             : pin.pin_display_name ?? pin.pin_name ?? `pin${pinIndex + 1}`;
       const suffix =
         mode === "mapping" ? ` ${pin.hole_id ?? "-"} ${pin.electrical_node_id ?? ""}` : "";
-      const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, undefined, targets);
+      const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, pin.electrical_net_id, targets);
       drawPin(ctx, point, `${baseLabel}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
     });
   });
 }
 
-function PinCoordinateView({ result }: { result: PipelineResult }) {
-  const mappingData = getStageData(result, "mapping");
+function getExpectedPinCount(packageType: string | undefined): number | null {
+  const normalized = normalizePackageType(packageType);
+  if (normalized === "dip8") return 8;
+  if (normalized === "dip14") return 14;
+  return null;
+}
 
-  const components =
-    (mappingData.components as Array<{
-      component_id?: string;
-      component_type?: string;
-      pins?: Array<{
-        pin_id?: number;
-        pin_name?: string;
-        pin_display_name?: string;
-        polarity_role?: string;
-        polarity_candidate_role?: string;
-        hole_id?: string;
-        electrical_node_id?: string;
-      }>;
-    }>) || [];
+function displayPinName(pin: Pin | undefined, fallback: string): string {
+  if (!pin) return fallback;
+  return pin.polarity_role && pin.polarity_role !== "UNKNOWN"
+    ? pin.polarity_role
+    : pin.polarity_candidate_role && pin.polarity_candidate_role !== "UNKNOWN"
+      ? pin.polarity_candidate_role
+      : pin.pin_display_name || pin.pin_name || fallback;
+}
+
+function pinSource(pin: Pin | undefined): string {
+  return pin?.source ?? pin?.source_by_view?.top ?? "-";
+}
+
+function pinCoordinate(pin: Pin | undefined): string {
+  if (!pin) return "-";
+  const point = pin.keypoints_by_view?.top;
+  if (point && point.length >= 2) {
+    return `${Math.round(point[0])}, ${Math.round(point[1])}`;
+  }
+  if (typeof pin.x_image === "number" && typeof pin.y_image === "number") {
+    return `${Math.round(pin.x_image)}, ${Math.round(pin.y_image)}`;
+  }
+  return "-";
+}
+
+function normalizedPinKey(pin: Pin): string {
+  return (pin.pin_name ?? pin.pin_display_name ?? "").trim().toLowerCase();
+}
+
+function getDisplayPins(component: PipelineComponent): Array<{ label: string; pin?: Pin }> {
+  const pins = component.pins ?? [];
+  const expectedCount = getExpectedPinCount(component.package_type);
+  if (!expectedCount || !isIcLikeComponent(component)) {
+    return pins.map((pin, index) => ({ label: displayPinName(pin, `pin${index + 1}`), pin }));
+  }
+
+  return Array.from({ length: expectedCount }, (_, index) => {
+    const label = `pin${index + 1}`;
+    const pin =
+      pins.find((candidate) => normalizedPinKey(candidate) === label) ??
+      pins.find((candidate) => candidate.pin_id === index + 1);
+    return { label, pin };
+  });
+}
+
+function PinCoordinateView({ result }: { result: Props["result"] }) {
+  const components = getMappedComponents(result);
 
   if (components.length === 0) {
     return (
@@ -154,7 +206,7 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
   return (
     <section className="mapping-panel">
       <div className="panel-heading">
-        <h2>元件引脚面包板坐标</h2>
+        <h2>元件引脚与面包板坐标</h2>
         <span>{components.length} 个元件</span>
       </div>
 
@@ -164,25 +216,27 @@ function PinCoordinateView({ result }: { result: PipelineResult }) {
             <div className="component-header">
               <span className="component-id">{comp.component_id}</span>
               <span className="component-type">{comp.component_type}</span>
+              {comp.package_type ? (
+                <span className="component-package">{normalizePackageType(comp.package_type)}</span>
+              ) : null}
             </div>
+            {isIcLikeComponent(comp) && !getExpectedPinCount(comp.package_type) ? (
+              <p className="ic-package-warning">封装类型不确定，请检查芯片检测框</p>
+            ) : null}
             <div className="pins-container">
-              {comp.pins?.map((pin) => (
-                <div key={pin.pin_id} className="pin-item">
-                  <span className="pin-name">
-                    {(pin.polarity_role && pin.polarity_role !== "UNKNOWN"
-                      ? pin.polarity_role
-                      : pin.polarity_candidate_role && pin.polarity_candidate_role !== "UNKNOWN"
-                        ? pin.polarity_candidate_role
-                        : pin.pin_display_name || pin.pin_name || `pin${pin.pin_id}`)}
-                  </span>
+              {getDisplayPins(comp).map(({ label, pin }, index) => (
+                <div key={`${comp.component_id}-${label}-${index}`} className="pin-item">
+                  <span className="pin-name">{label}</span>
                   <span className="arrow">→</span>
-                  <span className="hole-coord">{pin.hole_id || "-"}</span>
-                  {pin.electrical_node_id && (
+                  <span className="hole-coord">{pin?.hole_id || "-"}</span>
+                  {pin?.electrical_node_id ? (
                     <>
                       <span className="arrow">→</span>
                       <span className="net-id">{pin.electrical_node_id}</span>
                     </>
-                  )}
+                  ) : null}
+                  <span className="pin-source">source={pinSource(pin)}</span>
+                  <span className="pin-point">{pinCoordinate(pin)}</span>
                 </div>
               ))}
             </div>
@@ -239,13 +293,10 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
     if (mode === "mapping") {
       drawComponents(ctx, getMappedComponents(result), mode, true, highlightTargets);
     }
-  }, [image, mode, result, showPinModeBoxes]);
+  }, [image, mode, result, showPinModeBoxes, highlightTargets]);
 
   if (mode === "mapping") {
-    if (!result || !("stages" in result)) {
-      return <div className="empty-stage compact">等待 S2 孔位映射阶段完成...</div>;
-    }
-    return <PinCoordinateView result={result as PipelineResult} />;
+    return <PinCoordinateView result={result} />;
   }
 
   if (!imageUrl) {

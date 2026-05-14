@@ -1196,6 +1196,16 @@ h2 {
   margin-bottom: 4px;
 }
 
+.ic-annotation-panel .panel-heading h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ic-annotation-table {
+  min-width: 620px;
+}
+
 .net-role-table {
   min-width: 760px;
 }

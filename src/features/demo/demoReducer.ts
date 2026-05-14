@@ -10,6 +10,7 @@ import type {
   ReferenceSummary,
   ManualNetRoleAssignment,
   LogicalReference,
+  IcAnnotation,
 } from "../../types/pipeline";
 import type { CanvasMode, RunState } from "../../types/ui";
 import { createClientId } from "../../utils/id";
@@ -39,6 +40,7 @@ export type DemoState = {
   portAnnotations: Map<string, PortAnnotation>;
   manualNetRoleAssignments: Map<string, ManualNetRoleAssignment>;
   manualPinPolarityAssignments: Map<string, "E" | "B" | "C">;
+  manualIcAnnotations: Map<string, IcAnnotation>;
   agentStatus: "idle" | "running" | "success" | "error";
   agentResult: AgentStatusResponse | null;
   agentError: string;
@@ -68,6 +70,8 @@ export type DemoAction =
   | { type: "reset-manual-net-roles" }
   | { type: "set-manual-pin-polarity"; key: string; polarity: "E" | "B" | "C" | null }
   | { type: "reset-manual-pin-polarities" }
+  | { type: "set-ic-annotation"; key: string; annotation: IcAnnotation | null }
+  | { type: "reset-ic-annotations" }
   | { type: "run-start" }
   | { type: "corrected-recompute-start" }
   | { type: "corrected-recompute-success"; result: PipelineResult }
@@ -117,6 +121,7 @@ export const initialDemoState: DemoState = {
   portAnnotations: new Map(),
   manualNetRoleAssignments: new Map(),
   manualPinPolarityAssignments: new Map(),
+  manualIcAnnotations: new Map(),
   agentStatus: "idle",
   agentResult: null,
   agentError: "",
@@ -160,6 +165,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
+        manualIcAnnotations: new Map(),
         agentResult: null,
         agentError: "",
         agentStatus: "idle",
@@ -182,6 +188,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
+        manualIcAnnotations: new Map(),
       };
     case "set-port-annotation": {
       const next = new Map(state.portAnnotations);
@@ -216,6 +223,17 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     case "reset-manual-pin-polarities":
       return { ...state, manualPinPolarityAssignments: new Map() };
+    case "set-ic-annotation": {
+      const next = new Map(state.manualIcAnnotations);
+      if (action.annotation === null) {
+        next.delete(action.key);
+      } else {
+        next.set(action.key, action.annotation);
+      }
+      return { ...state, manualIcAnnotations: next };
+    }
+    case "reset-ic-annotations":
+      return { ...state, manualIcAnnotations: new Map() };
     case "run-start":
       return {
         ...state,
@@ -225,6 +243,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         portAnnotations: new Map(),
         manualNetRoleAssignments: new Map(),
         manualPinPolarityAssignments: new Map(),
+        manualIcAnnotations: new Map(),
         agentStatus: "idle",
         agentError: "",
         chatMessages: [],
@@ -267,6 +286,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         pipelineResult: mergedResult,
         manualCorrections: new Map(),
         manualPinPolarityAssignments: new Map(),
+        manualIcAnnotations: new Map(),
         agentResult: null,
         agentError: "",
         pipelineProgress: {

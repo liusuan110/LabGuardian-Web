@@ -1,5 +1,6 @@
 import { runPipeline, analyzeCircuit, visualizePorts } from "../../api/pipeline";
 import type { CircuitAnalysisResult, PipelineStageName, PortVisualizationResult } from "../../types/pipeline";
+import { buildIcAnnotations } from "../../utils/icAnnotations";
 import { portAnnotationsToList } from "../../utils/portAnnotation";
 import type { DemoAction, DemoState } from "./demoReducer";
 
@@ -68,6 +69,7 @@ export function usePipelineRun(
         rail_assignments: state.rails,
         port_annotations: portAnnotationsToList(state.portAnnotations),
         net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
+        ic_annotations: buildIcAnnotations(state.pipelineResult, state.manualIcAnnotations),
       });
       stopProgress();
       dispatch({ type: "run-success", result: pipeline });
@@ -97,6 +99,7 @@ export function usePipelineRun(
         rail_assignments: state.rails,
         port_annotations: portAnnotationsToList(state.portAnnotations),
         net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
+        ic_annotations: buildIcAnnotations(state.pipelineResult, state.manualIcAnnotations),
       });
 
       console.log("电路分析完成:", result);
@@ -129,6 +132,7 @@ export function usePipelineRun(
         rail_assignments: state.rails,
         port_annotations: portAnnotationsToList(state.portAnnotations),
         net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
+        ic_annotations: buildIcAnnotations(state.pipelineResult, state.manualIcAnnotations),
       });
 
       console.log("端口可视化完成:", result);

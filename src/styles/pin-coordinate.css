@@ -38,6 +38,29 @@
   box-shadow: 0 1px 2px rgba(124, 58, 237, 0.15);
 }
 
+.component-header .component-package,
+.component-package {
+  padding: 4px 10px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.ic-package-warning {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .pins-container {
   display: flex;
   flex-wrap: wrap;
@@ -90,4 +113,15 @@
   font-weight: 600;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   box-shadow: 0 1px 2px rgba(30, 64, 175, 0.1);
+}
+
+.pin-item .pin-source,
+.pin-item .pin-point {
+  padding: 3px 8px;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }

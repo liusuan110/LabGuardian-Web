@@ -13,6 +13,7 @@ import { UploadPanel } from "../../components/UploadPanel";
 import { recomputeCorrected } from "../../api/pipeline";
 import { buildCorrectionPatch } from "../../utils/breadboard";
 import { fileToBase64 } from "../../utils/file";
+import { buildIcAnnotations } from "../../utils/icAnnotations";
 import { getStageData } from "../../utils/pipeline";
 import { portAnnotationsToList } from "../../utils/portAnnotation";
 import type { PipelineComponent, PipelineResult, EvidenceRef, ComparisonReport } from "../../types/pipeline";
@@ -82,6 +83,7 @@ export function DemoPage() {
     const corrections = buildCorrectionPatch(result, state.manualCorrections);
     const portAnnotations = portAnnotationsToList(state.portAnnotations);
     const netRoleAssignments = Array.from(state.manualNetRoleAssignments.values());
+    const icAnnotations = buildIcAnnotations(result, state.manualIcAnnotations);
     const pinPolarityAssignments = Array.from(state.manualPinPolarityAssignments.entries()).map(
       ([key, polarity]) => {
         const [component_id, pin_name] = key.split(".", 2);
@@ -102,7 +104,8 @@ export function DemoPage() {
       corrections.length === 0 &&
       portAnnotations.length === 0 &&
       netRoleAssignments.length === 0 &&
-      pinPolarityAssignments.length === 0
+      pinPolarityAssignments.length === 0 &&
+      icAnnotations.length === 0
     ) {
       dispatch({
         type: "run-error",
@@ -121,6 +124,7 @@ export function DemoPage() {
         port_annotations: portAnnotations,
         net_role_assignments: netRoleAssignments,
         pin_polarity_assignments: pinPolarityAssignments,
+        ic_annotations: icAnnotations,
         rail_assignments: state.rails,
         reference_id: state.selectedReferenceId,
         reference_circuit: null,
@@ -196,6 +200,7 @@ export function DemoPage() {
                   dispatch({ type: "reset-port-annotations" });
                   dispatch({ type: "reset-manual-net-roles" });
                   dispatch({ type: "reset-manual-pin-polarities" });
+                  dispatch({ type: "reset-ic-annotations" });
                 }}
                 onApplyCorrections={handleApplyCorrections}
                 isApplyingCorrections={state.runState === "running"}
@@ -217,6 +222,11 @@ export function DemoPage() {
                   dispatch({ type: "set-manual-pin-polarity", key, polarity })
                 }
                 onResetPinPolarities={() => dispatch({ type: "reset-manual-pin-polarities" })}
+                icAnnotations={state.manualIcAnnotations}
+                onIcAnnotationChange={(key, annotation) =>
+                  dispatch({ type: "set-ic-annotation", key, annotation })
+                }
+                onResetIcAnnotations={() => dispatch({ type: "reset-ic-annotations" })}
               />
             ) : (
               <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} highlightTargets={highlightTargets} />

@@ -69,6 +69,14 @@ export type PortAnnotation = {
   source?: "port_annotation";
 };
 
+export type IcNotchDirection = "left" | "right" | "top" | "bottom" | "unknown";
+
+export type IcAnnotation = {
+  component_id: string;
+  notch_direction: IcNotchDirection;
+  package_type?: string;
+};
+
 export type PipelineRequest = {
   station_id: string;
   images_b64: string[];
@@ -80,6 +88,7 @@ export type PipelineRequest = {
   rail_assignments?: RailAssignments;
   port_annotations?: PortAnnotation[];
   net_role_assignments?: ManualNetRoleAssignment[];
+  ic_annotations?: IcAnnotation[];
 };
 
 export type ManualCorrectionPatch = {
@@ -121,6 +130,7 @@ export type CorrectedRecomputeRequest = {
   port_annotations?: PortAnnotation[];
   net_role_assignments?: ManualNetRoleAssignment[];
   pin_polarity_assignments?: ManualPinPolarityAssignment[];
+  ic_annotations?: IcAnnotation[];
 };
 
 export type Detection = {
@@ -148,6 +158,11 @@ export type Pin = {
   logic_loc?: string;
   hole_id?: string;
   electrical_node_id?: string;
+  electrical_net_id?: string;
+  x_image?: number;
+  y_image?: number;
+  x_warp?: number;
+  y_warp?: number;
   candidate_hole_ids?: string[];
   candidate_node_ids?: string[];
   is_ambiguous?: boolean;
@@ -330,6 +345,8 @@ export type PinLocation = {
   y_image?: number;
   electrical_node_id?: string;
   electrical_net_id?: string;
+  source?: string;
+  source_by_view?: Record<string, string>;
 };
 
 export type ComponentWithPins = {

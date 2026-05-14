@@ -64,6 +64,13 @@ export function getMappedComponents(result: PipelineResult | CircuitAnalysisResu
           polarity_candidate_role: pin.polarity_candidate_role,
           hole_id: pin.hole_id,
           electrical_node_id: pin.electrical_node_id,
+          electrical_net_id: pin.electrical_net_id,
+          x_image: pin.x_image,
+          y_image: pin.y_image,
+          x_warp: pin.x_warp,
+          y_warp: pin.y_warp,
+          source: pin.source,
+          source_by_view: pin.source_by_view,
         })),
       }));
     }
