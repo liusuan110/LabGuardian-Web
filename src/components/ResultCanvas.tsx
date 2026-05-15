@@ -61,6 +61,7 @@ function drawPin(
   point: number[] | null | undefined,
   label: string,
   color: string,
+  labelOffset: { x: number; y: number } = { x: 14, y: -12 },
 ) {
   if (!point || point.length < 2) return;
   const [x, y] = point;
@@ -72,8 +73,28 @@ function drawPin(
   ctx.arc(x, y, 10, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  drawLabel(ctx, label, x + 14, y - 12, "#31544e");
+  drawLabel(ctx, label, x + labelOffset.x, y + labelOffset.y, "#31544e");
   ctx.restore();
+}
+
+function pinLabelOffset(component: PipelineComponent, pinIndex: number): { x: number; y: number } {
+  if ((component.component_type ?? "").toLowerCase() !== "potentiometer") {
+    return { x: 14, y: -12 };
+  }
+  const pins = component.pins ?? [];
+  const points = pins
+    .map((_, index) => topPoint(component, index))
+    .filter((point): point is number[] => Boolean(point && point.length >= 2));
+  if (points.length < 2) return { x: 14, y: -12 };
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  const spreadX = Math.max(...xs) - Math.min(...xs);
+  const spreadY = Math.max(...ys) - Math.min(...ys);
+  const slot = pinIndex - 1;
+  if (spreadY >= spreadX) {
+    return { x: 18 + Math.abs(slot) * 18, y: slot * 34 - 12 };
+  }
+  return { x: 18, y: slot * 34 - 12 };
 }
 
 function isHighlighted(
@@ -132,7 +153,13 @@ function drawComponents(
       const suffix =
         mode === "mapping" ? ` ${pin.hole_id ?? "-"} ${pin.electrical_node_id ?? ""}` : "";
       const pinHighlighted = isHighlighted(component.component_id, pin.pin_name, pin.hole_id, pin.electrical_net_id, targets);
-      drawPin(ctx, point, `${baseLabel}${suffix}`, pinHighlighted ? "#ff5722" : "#ffd166");
+      drawPin(
+        ctx,
+        point,
+        `${baseLabel}${suffix}`,
+        pinHighlighted ? "#ff5722" : "#ffd166",
+        pinLabelOffset(component, pinIndex),
+      );
     });
   });
 }
