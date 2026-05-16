@@ -61,6 +61,7 @@ function drawPin(
   point: number[] | null | undefined,
   label: string,
   color: string,
+  showLabel: boolean,
   labelOffset: { x: number; y: number } = { x: 14, y: -12 },
 ) {
   if (!point || point.length < 2) return;
@@ -73,7 +74,9 @@ function drawPin(
   ctx.arc(x, y, 10, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  drawLabel(ctx, label, x + labelOffset.x, y + labelOffset.y, "#31544e");
+  if (showLabel) {
+    drawLabel(ctx, label, x + labelOffset.x, y + labelOffset.y, "#31544e");
+  }
   ctx.restore();
 }
 
@@ -128,6 +131,7 @@ function drawComponents(
   components: PipelineComponent[],
   mode: CanvasMode,
   showComponentBoxes: boolean,
+  showPinLabels: boolean,
   targets: EvidenceRef[],
 ) {
   components.forEach((component, componentIndex) => {
@@ -158,6 +162,7 @@ function drawComponents(
         point,
         `${baseLabel}${suffix}`,
         pinHighlighted ? "#ff5722" : "#ffd166",
+        showPinLabels,
         pinLabelOffset(component, pinIndex),
       );
     });
@@ -278,6 +283,7 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [showPinModeBoxes, setShowPinModeBoxes] = useState(true);
+  const [showPinLabels, setShowPinLabels] = useState(true);
 
   useEffect(() => {
     if (!imageUrl) {
@@ -314,13 +320,13 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
     }
 
     if (mode === "pins") {
-      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes, highlightTargets);
+      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes, showPinLabels, highlightTargets);
     }
 
     if (mode === "mapping") {
-      drawComponents(ctx, getMappedComponents(result), mode, true, highlightTargets);
+      drawComponents(ctx, getMappedComponents(result), mode, true, showPinLabels, highlightTargets);
     }
-  }, [image, mode, result, showPinModeBoxes, highlightTargets]);
+  }, [image, mode, result, showPinModeBoxes, showPinLabels, highlightTargets]);
 
   if (mode === "mapping") {
     return <PinCoordinateView result={result} />;
@@ -340,6 +346,13 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
             onClick={() => setShowPinModeBoxes((current) => !current)}
           >
             {showPinModeBoxes ? "只看引脚" : "显示元件框"}
+          </button>
+          <button
+            type="button"
+            className="canvas-toggle-btn"
+            onClick={() => setShowPinLabels((current) => !current)}
+          >
+            {showPinLabels ? "隐藏引脚名" : "显示引脚名"}
           </button>
         </div>
       ) : null}
