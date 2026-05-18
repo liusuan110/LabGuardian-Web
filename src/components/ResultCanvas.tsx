@@ -18,30 +18,30 @@ type Props = {
   highlightTargets?: EvidenceRef[];
 };
 
-function drawLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) {
+function drawLabel(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, scale = 1) {
   ctx.save();
-  ctx.font = "28px Inter, sans-serif";
-  const padding = 8;
+  ctx.font = `${14 * scale}px Inter, sans-serif`;
+  const padding = 4 * scale;
   const metrics = ctx.measureText(text);
   const width = metrics.width + padding * 2;
-  const height = 36;
+  const height = 18 * scale;
   const safeX = Math.max(0, Math.min(x, ctx.canvas.width - width));
   const safeY = Math.max(height, y);
   ctx.fillStyle = color;
   ctx.fillRect(safeX, safeY - height, width, height);
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(text, safeX + padding, safeY - 10);
+  ctx.fillText(text, safeX + padding, safeY - 5 * scale);
   ctx.restore();
 }
 
-function drawBox(ctx: CanvasRenderingContext2D, bbox: number[], label: string, color: string) {
+function drawBox(ctx: CanvasRenderingContext2D, bbox: number[], label: string, color: string, scale = 1) {
   if (bbox.length < 4) return;
   const [x1, y1, x2, y2] = bbox;
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 2 * scale;
   ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-  drawLabel(ctx, label, x1, y1 - 10, color);
+  drawLabel(ctx, label, x1, y1 - 6 * scale, color, scale);
   ctx.restore();
 }
 
@@ -62,42 +62,43 @@ function drawPin(
   label: string,
   color: string,
   showLabel: boolean,
-  labelOffset: { x: number; y: number } = { x: 14, y: -12 },
+  labelOffset: { x: number; y: number } = { x: 8, y: -6 },
+  scale = 1,
 ) {
   if (!point || point.length < 2) return;
   const [x, y] = point;
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = "#1b2522";
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 1.5 * scale;
   ctx.beginPath();
-  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.arc(x, y, 5 * scale, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   if (showLabel) {
-    drawLabel(ctx, label, x + labelOffset.x, y + labelOffset.y, "#31544e");
+    drawLabel(ctx, label, x + labelOffset.x * scale, y + labelOffset.y * scale, "#31544e", scale);
   }
   ctx.restore();
 }
 
 function pinLabelOffset(component: PipelineComponent, pinIndex: number): { x: number; y: number } {
   if ((component.component_type ?? "").toLowerCase() !== "potentiometer") {
-    return { x: 14, y: -12 };
+    return { x: 8, y: -6 };
   }
   const pins = component.pins ?? [];
   const points = pins
     .map((_, index) => topPoint(component, index))
     .filter((point): point is number[] => Boolean(point && point.length >= 2));
-  if (points.length < 2) return { x: 14, y: -12 };
+  if (points.length < 2) return { x: 8, y: -6 };
   const xs = points.map((point) => point[0]);
   const ys = points.map((point) => point[1]);
   const spreadX = Math.max(...xs) - Math.min(...xs);
   const spreadY = Math.max(...ys) - Math.min(...ys);
   const slot = pinIndex - 1;
   if (spreadY >= spreadX) {
-    return { x: 18 + Math.abs(slot) * 18, y: slot * 34 - 12 };
+    return { x: 10 + Math.abs(slot) * 10, y: slot * 18 - 6 };
   }
-  return { x: 18, y: slot * 34 - 12 };
+  return { x: 10, y: slot * 18 - 6 };
 }
 
 function isHighlighted(
@@ -133,6 +134,7 @@ function drawComponents(
   showComponentBoxes: boolean,
   showPinLabels: boolean,
   targets: EvidenceRef[],
+  scale = 1,
 ) {
   components.forEach((component, componentIndex) => {
     const baseColor = ["#14796b", "#2563eb", "#b45309", "#7c3aed"][componentIndex % 4];
@@ -144,6 +146,7 @@ function drawComponents(
         component.bbox,
         `${component.component_id ?? ""} ${component.component_type ?? "UNKNOWN"}`.trim(),
         color,
+        scale,
       );
     }
     component.pins?.forEach((pin, pinIndex) => {
@@ -164,6 +167,7 @@ function drawComponents(
         pinHighlighted ? "#ff5722" : "#ffd166",
         showPinLabels,
         pinLabelOffset(component, pinIndex),
+        scale,
       );
     });
   });
@@ -308,6 +312,8 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
 
     if (!result) return;
 
+    const scale = Math.max(0.5, Math.min(2.0, image.naturalWidth / 1920));
+
     if (mode === "detect") {
       getDetections(result).forEach((detection, index) => {
         if (!detection.bbox) return;
@@ -315,16 +321,16 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
         const label = `${detection.component_id ?? `D${index + 1}`} ${
           detection.component_type ?? detection.class_name ?? "UNKNOWN"
         }`;
-        drawBox(ctx, detection.bbox, label, highlighted ? "#be3144" : "#14796b");
+        drawBox(ctx, detection.bbox, label, highlighted ? "#be3144" : "#14796b", scale);
       });
     }
 
     if (mode === "pins") {
-      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes, showPinLabels, highlightTargets);
+      drawComponents(ctx, getPinComponents(result), mode, showPinModeBoxes, showPinLabels, highlightTargets, scale);
     }
 
     if (mode === "mapping") {
-      drawComponents(ctx, getMappedComponents(result), mode, true, showPinLabels, highlightTargets);
+      drawComponents(ctx, getMappedComponents(result), mode, true, showPinLabels, highlightTargets, scale);
     }
   }, [image, mode, result, showPinModeBoxes, showPinLabels, highlightTargets]);
 
