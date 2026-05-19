@@ -34,6 +34,8 @@ const railLabels: Array<[keyof RailAssignments, string]> = [
   ["bot_minus", "下 -"],
 ];
 
+const railOptions = ["VCC", "GND", "VEE"] as const;
+
 export function UploadPanel({
   file,
   conf,
@@ -122,9 +124,11 @@ export function UploadPanel({
             <label key={key}>
               {label}
               <select value={rails[key]} onChange={(event) => onRailChange(key, event.target.value)}>
-                <option value="VCC">VCC</option>
-                <option value="GND">GND</option>
-                <option value="FLOAT">FLOAT</option>
+                {railOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
               </select>
             </label>
           ))}

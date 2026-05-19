@@ -292,8 +292,8 @@ export function BreadboardView({
 
   const usedNetIds = Array.from(model.netHoles.entries())
     .sort(([a], [b]) => {
-      const aP = /VCC|GND/.test(a.toUpperCase());
-      const bP = /VCC|GND/.test(b.toUpperCase());
+      const aP = /VCC|VEE|GND/.test(a.toUpperCase());
+      const bP = /VCC|VEE|GND/.test(b.toUpperCase());
       if (aP && !bP) return -1;
       if (!aP && bP) return 1;
       return a.localeCompare(b);
@@ -354,6 +354,17 @@ export function BreadboardView({
     const annotation = buildPortAnnotation(refNet, netId);
     if (!annotation) return;
     const pin = pins?.[0];
+    // R11 follow-up — the LOCAL_NET_<i> ids minted by
+    // recomputeNetIdsByStrip() are frontend-only synthetic
+    // identifiers; the backend has no such net so passing them
+    // through here would short-circuit _resolve_net (it'd try
+    // electrical_net_id first, miss, and silently drop the whole
+    // annotation). Drop the field when it's synthetic so the
+    // backend falls back to hole_id / component+pin / node_id
+    // (all stable across the recompute pass).
+    const rawNetId = pin?.electricalNetId ?? netId;
+    const isSyntheticNet =
+      typeof rawNetId === "string" && rawNetId.startsWith("LOCAL_NET_");
     onPortAnnotationChange(portAnnotationKey(netId), {
       ...annotation,
       target: {
@@ -362,7 +373,7 @@ export function BreadboardView({
         pin_name: pin?.pinName ?? annotation.target.pin_name,
         hole_id: pin?.holeId ?? annotation.target.hole_id,
         electrical_node_id: pin?.electricalNodeId ?? annotation.target.electrical_node_id,
-        electrical_net_id: pin?.electricalNetId ?? netId,
+        electrical_net_id: isSyntheticNet ? undefined : rawNetId,
       },
     });
     setSelectedNet(netId);
@@ -590,6 +601,8 @@ export function BreadboardView({
     const busY =
       role === "VCC"
         ? avgY > centerY ? railY("bot_plus") + powerLaneOffset : railY("top_plus") + powerLaneOffset
+        : role === "VEE"
+          ? avgY > centerY ? railY("bot_minus") + powerLaneOffset : railY("top_minus") + powerLaneOffset
         : role === "GND"
           ? avgY > centerY ? railY("bot_minus") + powerLaneOffset : railY("top_minus") + powerLaneOffset
           : centerY + laneOffset;

@@ -1376,6 +1376,11 @@ h2 {
   color: #ff9800;
 }
 
+.power-role.VEE {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
 .power-role.GND {
   background: #fce4ec;
   color: #e91e63;
@@ -1623,6 +1628,11 @@ h2 {
 .power-role-badge.vcc {
   background: #ffebee;
   color: #be3144;
+}
+
+.power-role-badge.vee {
+  background: #f3e8ff;
+  color: #7c3aed;
 }
 
 .power-role-badge.gnd {
@@ -1910,6 +1920,11 @@ h2 {
 .power-role-mini.vcc {
   background: #ffebee;
   color: #be3144;
+}
+
+.power-role-mini.vee {
+  background: #f3e8ff;
+  color: #7c3aed;
 }
 
 .power-role-mini.gnd {

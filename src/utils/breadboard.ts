@@ -86,13 +86,48 @@ export type BreadboardModel = {
 };
 
 /** 把孔地址映射到面包板真实导电带 ID。每个孔属于唯一一个 strip。
- *  电源轨按物理事实在 col 30↔31 拆成左右两段。 */
+ *  电源轨按物理事实在 col 30↔31 拆成左右两段。
+ *
+ *  **仅供前端内部 union-find 使用**，**不要**把它写到 pin.electricalNodeId
+ *  里发给后端 —— 后端用的是 schema 命名空间（`ROW_16_R` / `TRACK_LP_SEG1`），
+ *  请用 `addrToBackendNodeId(addr)` 拿到与后端一致的 node id。
+ */
 export function stripIdFor(addr: HoleAddr): string {
   if (addr.kind === "rail") {
     return `strip:rail:${addr.rail}:${railHalfForCol(addr.col)}`;
   }
   const half = TOP_LETTERS.includes(addr.letter as (typeof TOP_LETTERS)[number]) ? "top" : "bot";
   return `strip:matrix:${half}:c${addr.row}`;
+}
+
+/** **R11 后续修复 (2026-05-19)** — 把孔地址映射到**后端 schema 同款**的
+ *  electrical_node_id。这是发出 PortAnnotation / ManualNetRoleAssignment
+ *  时 `electrical_node_id` 字段应当使用的值。
+ *
+ *  与后端 `BoardSchema.default_breadboard()` 的命名一一对应：
+ *  - 矩阵孔 A-E → `ROW_{col}_L`；F-J → `ROW_{col}_R`
+ *  - 电源轨 LP/LN/RP/RN，col 1-31 → `TRACK_{rail}_SEG1`；col 32-63 → `TRACK_{rail}_SEG2`
+ *
+ *  之前 `pin.electricalNodeId` 在被拖动的 pin 上被写成了 `stripIdFor()` 的
+ *  "strip:matrix:top:c16" —— 那是前端内部命名，后端的 `by_node` 索引根本
+ *  没这个 key，导致 role/port annotation 即使加了 hole_id 兜底也 resolve 失败。
+ */
+export function addrToBackendNodeId(addr: HoleAddr): string {
+  if (addr.kind === "matrix") {
+    const side = TOP_LETTERS.includes(addr.letter as (typeof TOP_LETTERS)[number]) ? "L" : "R";
+    return `ROW_${addr.row}_${side}`;
+  }
+  const railMap: Record<RailKind, string> = {
+    top_plus: "LP",
+    top_minus: "LN",
+    bot_plus: "RP",
+    bot_minus: "RN",
+  };
+  const track = railMap[addr.rail];
+  // 中央断点：col 1-31 = SEG1, col 32-63 = SEG2（与 backend
+  // `breadboard_legacy_v1.json` 配置一致）
+  const seg = addr.col <= HALF_BOUNDARY ? "SEG1" : "SEG2";
+  return `TRACK_${track}_${seg}`;
 }
 
 /** 静态枚举所有 strip：4 轨 × 2 半 + 60 列 × 2 半 = 8 + 120 = 128 条。 */
@@ -272,6 +307,7 @@ export function parseHoleId(raw: string | undefined | null): HoleAddr | null {
 function inferRole(netId: string): string {
   const u = netId.toUpperCase();
   if (u.includes("VCC") || u === "5V" || u === "3V3") return "VCC";
+  if (u.includes("VEE") || u === "-5V" || u === "-12V") return "VEE";
   if (u.includes("GND") || u === "0V") return "GND";
   return "SIGNAL";
 }
@@ -314,6 +350,124 @@ function pushPin(model: BreadboardModel, addr: HoleAddr, ref: BreadboardPinRef) 
   if (!model.componentTypes.has(ref.componentId)) {
     model.componentTypes.set(ref.componentId, ref.componentType);
   }
+}
+
+/** **R11 audit fix (2026-05-19)** — minimal union-find for the local
+ *  net recompute pass. Each strip is one equipotential class; Wire
+ *  components union their two endpoint strips. Mirrors the backend's
+ *  ``CircuitAnalyzer._uf`` so that dragging a pin produces the same
+ *  net topology the backend would compute on commit. */
+class LocalUnionFind {
+  private parent = new Map<string, string>();
+  add(x: string): void {
+    if (!this.parent.has(x)) this.parent.set(x, x);
+  }
+  find(x: string): string {
+    this.add(x);
+    let p = this.parent.get(x)!;
+    if (p === x) return x;
+    const r = this.find(p);
+    this.parent.set(x, r);
+    return r;
+  }
+  union(a: string, b: string): void {
+    const ra = this.find(a);
+    const rb = this.find(b);
+    if (ra !== rb) this.parent.set(ra, rb);
+  }
+}
+
+/** Collected pin info BEFORE pushing into the model. We do a 2-pass
+ *  build so the second pass knows the final per-pin netId determined
+ *  by strip topology + Wire bridges. */
+type StagedPin = {
+  componentId: string;
+  componentType: string;
+  pinName: string;
+  pinDisplayName?: string;
+  polarityRole?: string;
+  polarityCandidateRole?: string;
+  /** The pin's address AFTER applying any user correction. */
+  addr: HoleAddr;
+  /** holeId string for display (matches addr, not the original input). */
+  holeId: string;
+  /** What the backend told us about this pin originally. Used to
+   *  preserve backend net naming when the equivalence class still
+   *  contains uncorrected pins.  May be empty for synthetic /
+   *  PortVisualization sources. */
+  originalNetId: string;
+  /** True if applyCorrection rewrote this pin's addr. */
+  corrected: boolean;
+  /** electrical_node_id the backend assigned (mostly informational
+   *  in the staged form — final value is derived from strip). */
+  electricalNodeId: string;
+  isAmbiguous?: boolean;
+  ambiguityReasons?: string[];
+  candidateHoleIds?: string[];
+};
+
+/** **R11 audit fix** — recompute every pin's net assignment from
+ *  current strip topology + Wire bridges so a moved pin no longer
+ *  shows phantom connection lines back to its old net.
+ *
+ *  The renderer reads ``model.netHoles.get(netId)`` to draw connection
+ *  lines; if a moved pin retains its old ``netId``, its new hole gets
+ *  added to the old net's hole list and the renderer paints a line
+ *  from the old-net cluster all the way to the new hole. Recomputing
+ *  here keeps the visual fully in sync with the (corrected) topology.
+ *
+ *  Net naming rule (back-compat):
+ *  - If an equivalence class contains at least one *uncorrected* pin
+ *    with an ``originalNetId``, the class inherits that name. So an
+ *    untouched circuit renders with the exact same net IDs as before.
+ *  - Else (purely synthesised by user drags or no backend net) the
+ *    class gets a fresh ``LOCAL_NET_<i>`` id. The backend's
+ *    ``recompute-corrected`` endpoint reconciles to canonical names on
+ *    commit.
+ */
+function recomputeNetIdsByStrip(staged: StagedPin[]): Map<string, string> {
+  const uf = new LocalUnionFind();
+  // Seed every strip that has a pin
+  for (const p of staged) {
+    uf.add(stripIdFor(p.addr));
+  }
+  // Wire components bridge their two strips
+  const wirePins = new Map<string, StagedPin[]>();
+  for (const p of staged) {
+    if ((p.componentType || "").toLowerCase() === "wire") {
+      const list = wirePins.get(p.componentId) ?? [];
+      list.push(p);
+      wirePins.set(p.componentId, list);
+    }
+  }
+  for (const pins of wirePins.values()) {
+    if (pins.length >= 2) {
+      // Union all pin strips of this wire (handles >2-pin wires too)
+      const first = stripIdFor(pins[0].addr);
+      for (let i = 1; i < pins.length; i++) {
+        uf.union(first, stripIdFor(pins[i].addr));
+      }
+    }
+  }
+  // Inherit backend net names where the class still has uncorrected pins
+  const rootToName = new Map<string, string>();
+  for (const p of staged) {
+    if (p.corrected) continue;
+    if (!p.originalNetId || p.originalNetId === "UNKNOWN") continue;
+    const root = uf.find(stripIdFor(p.addr));
+    if (!rootToName.has(root)) rootToName.set(root, p.originalNetId);
+  }
+  // Mint LOCAL_NET_<i> for any class that didn't inherit a name
+  let synthCounter = 0;
+  const result = new Map<string, string>();
+  for (const p of staged) {
+    const root = uf.find(stripIdFor(p.addr));
+    if (!rootToName.has(root)) {
+      rootToName.set(root, `LOCAL_NET_${synthCounter++}`);
+    }
+    result.set(pinKeyOf(p.componentId, p.pinName), rootToName.get(root)!);
+  }
+  return result;
 }
 
 export function buildBreadboardModel(
@@ -365,8 +519,18 @@ export function buildBreadboardModel(
     if (!correctedKey) return { addr, holeId, corrected: false };
     const correctedAddr = parseHoleKey(correctedKey);
     if (!correctedAddr) return { addr, holeId, corrected: false };
-    return { addr: correctedAddr, holeId: holeAddrToDisplayId(correctedAddr), corrected: true };
+    // R11 follow-up — use backend canonical hole_id (LP15, not TOP+15)
+    // so the annotation payload's `hole_id` field resolves against the
+    // backend's `by_hole` index. Matrix hole_id is the same in both
+    // namespaces (B16), but rail / power names differ.
+    return { addr: correctedAddr, holeId: holeAddrToBackendId(correctedAddr), corrected: true };
   };
+
+  // R11 audit fix — two-pass build:
+  //   pass 1: stage every pin with its CORRECTED address
+  //   pass 2: recompute per-pin netId from strip topology (Wires bridge)
+  //           then push into the model using the recomputed netId.
+  const staged: StagedPin[] = [];
 
   // PortVisualizationResult: 最干净的数据源
   if ("ports" in result && Array.isArray((result as PortVisualizationResult).ports)) {
@@ -380,22 +544,22 @@ export function buildBreadboardModel(
         return;
       }
       const fixed = applyCorrection(componentId, pinName, addr0, p.hole_id);
-      const ref: BreadboardPinRef = {
+      staged.push({
         componentId,
         componentType: p.component_type,
         pinName,
-        netId: p.net_id || "UNKNOWN",
-        electricalNodeId: p.net_id || "UNKNOWN",
-        electricalNetId: p.net_id || "UNKNOWN",
+        addr: fixed.addr,
         holeId: fixed.holeId,
-        userCorrected: fixed.corrected,
-      };
-      pushPin(model, fixed.addr, ref);
+        originalNetId: p.net_id || "UNKNOWN",
+        corrected: fixed.corrected,
+        electricalNodeId: p.net_id || "UNKNOWN",
+      });
     });
     r.nets?.forEach((n) => {
       if (n.net_name) model.netLabels.set(n.net_id, n.net_name);
       if (n.power_role) model.netRoles.set(n.net_id, n.power_role.toUpperCase());
     });
+    finalizeStagedPins(model, staged);
     return model;
   }
 
@@ -412,21 +576,22 @@ export function buildBreadboardModel(
           return;
         }
         const fixed = applyCorrection(comp.component_id, pinName, addr0, pin.hole_id);
-        pushPin(model, fixed.addr, {
+        staged.push({
           componentId: comp.component_id,
           componentType: comp.component_type,
           pinName,
-          netId,
-          electricalNodeId: pin.electrical_node_id || "UNKNOWN",
-          electricalNetId: pin.electrical_net_id || pin.electrical_node_id || "UNKNOWN",
+          addr: fixed.addr,
           holeId: fixed.holeId,
-          userCorrected: fixed.corrected,
+          originalNetId: netId,
+          corrected: fixed.corrected,
+          electricalNodeId: pin.electrical_node_id || "UNKNOWN",
         });
       });
     });
     r.nets?.forEach((n) => {
       if (n.power_role) model.netRoles.set(n.electrical_net_id, n.power_role.toUpperCase());
     });
+    finalizeStagedPins(model, staged);
     return model;
   }
 
@@ -465,25 +630,64 @@ export function buildBreadboardModel(
       const fixed = applyCorrection(componentId, pinName, addr0, pin.hole_id ?? "");
       const nodeId = pin.electrical_node_id ?? "UNKNOWN";
       const netId = nodeToNetId.get(nodeId) || nodeId;
-      pushPin(model, fixed.addr, {
+      staged.push({
         componentId,
         componentType,
         pinName,
         pinDisplayName: pin.pin_display_name ?? pinName,
         polarityRole: pin.polarity_role,
         polarityCandidateRole: pin.polarity_candidate_role,
-        netId,
-        electricalNodeId: nodeId,
-        electricalNetId: netId,
+        addr: fixed.addr,
         holeId: fixed.holeId,
+        originalNetId: netId,
+        corrected: fixed.corrected,
+        electricalNodeId: nodeId,
         isAmbiguous: pin.is_ambiguous,
         ambiguityReasons: pin.ambiguity_reasons,
         candidateHoleIds: pin.candidate_hole_ids,
-        userCorrected: fixed.corrected,
       });
     });
   });
+  finalizeStagedPins(model, staged);
   return model;
+}
+
+/** R11 audit fix — pass 2: recompute net assignments by strip topology,
+ *  then push each staged pin into the model with its FINAL net IDs. */
+function finalizeStagedPins(model: BreadboardModel, staged: StagedPin[]): void {
+  if (staged.length === 0) return;
+  const pinNetMap = recomputeNetIdsByStrip(staged);
+  for (const sp of staged) {
+    const finalNetId = pinNetMap.get(pinKeyOf(sp.componentId, sp.pinName)) ?? sp.originalNetId;
+    // **R11 follow-up (2026-05-19) — the critical fix.**
+    // For corrected pins, derive `electricalNodeId` using backend's
+    // schema-aligned naming (`ROW_16_R` / `TRACK_LP_SEG1`) so that the
+    // PortAnnotation / ManualNetRoleAssignment payload's
+    // `electrical_node_id` field hits the backend's `by_node` index
+    // and resolves to a real net. Previously this used
+    // `stripIdFor(addr)` which returns `strip:matrix:top:c16` — a
+    // **frontend-only** namespace the backend has never heard of, so
+    // even with the `_resolve_net` fallthrough fix the lookup missed
+    // and annotations were silently dropped.
+    const backendNodeId = addrToBackendNodeId(sp.addr);
+    const ref: BreadboardPinRef = {
+      componentId: sp.componentId,
+      componentType: sp.componentType,
+      pinName: sp.pinName,
+      pinDisplayName: sp.pinDisplayName,
+      polarityRole: sp.polarityRole,
+      polarityCandidateRole: sp.polarityCandidateRole,
+      netId: finalNetId,
+      electricalNodeId: sp.corrected ? backendNodeId : sp.electricalNodeId,
+      electricalNetId: finalNetId,
+      holeId: sp.holeId,
+      isAmbiguous: sp.isAmbiguous,
+      ambiguityReasons: sp.ambiguityReasons,
+      candidateHoleIds: sp.candidateHoleIds,
+      userCorrected: sp.corrected,
+    };
+    pushPin(model, sp.addr, ref);
+  }
 }
 
 export function buildCorrectionPatch(
@@ -543,6 +747,7 @@ const NET_COLORS = [
 
 export function getNetColor(netId: string, role?: string): string {
   if (role === "VCC") return "#dc2626";
+  if (role === "VEE") return "#7c3aed";
   if (role === "GND") return "#1f2937";
   let hash = 0;
   for (let i = 0; i < netId.length; i++) {

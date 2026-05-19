@@ -100,10 +100,15 @@ function getCurrentNets(result: Props["result"]): CurrentNetRow[] {
 
 function buildAssignment(refNet: LogicalReferenceNet, electricalNetId: string): ManualNetRoleAssignment {
   const roleLabel = referenceNetLabel(refNet);
+  // R11 follow-up — drop synthetic `LOCAL_NET_<i>` ids so the backend's
+  // _resolve_net falls back to other locators (hole_id / electrical_node_id).
+  // See BreadboardView.tsx::assignPortRefToNet for the matching defense.
+  const isSyntheticNet =
+    typeof electricalNetId === "string" && electricalNetId.startsWith("LOCAL_NET_");
   return {
     role: normalizeReferenceRole(refNet.role, roleLabel),
     role_label: roleLabel,
-    electrical_net_id: electricalNetId,
+    electrical_net_id: isSyntheticNet ? undefined : electricalNetId,
     source: "manual_netlist_select",
   };
 }
