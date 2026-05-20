@@ -8,6 +8,7 @@ import type {
   EvidenceRef,
 } from "../types/pipeline";
 import { asPercent } from "../utils/pipeline";
+import { GnnAdvisoryPanel } from "./GnnAdvisoryPanel";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -319,6 +320,15 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
             </p>
           ) : null}
         </section>
+      ) : null}
+
+      {/* ===== GNN 复核横幅 + "X 引脚可能错接，建议接到 Y" 列表卡 ===== */}
+      {isLogicalGraph ? (
+        <GnnAdvisoryPanel
+          gnn={summary?.gnn}
+          ruleLogicCorrect={logicCorrect}
+          gnnDisabledReason={summary?.gnn_disabled_reason}
+        />
       ) : null}
 
       {/* ===== 系统自动推断 / 对称识别 / 端口标注摘要 ===== */}
