@@ -3028,6 +3028,24 @@ h2 {
   transition: opacity 0.18s;
 }
 
+.bb-wire-segment {
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+
+.bb-wire-segment-hit {
+  stroke: transparent;
+  stroke-width: 13;
+  stroke-linecap: round;
+}
+
+.bb-wire-segment-line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.24));
+}
+
 .bb-net-route-hit {
   fill: none;
   stroke: transparent;

@@ -185,6 +185,18 @@ type NetRoute = {
   labelY: number;
 };
 
+type WireSegment = {
+  componentId: string;
+  netId: string;
+  color: string;
+  a: Point;
+  b: Point;
+};
+
+function isPowerRole(role: string) {
+  return role === "VCC" || role === "VEE" || role === "GND";
+}
+
 function buildRoutePath(points: Point[], busY: number) {
   const xs = points.map((p) => p.x);
   const minX = Math.min(...xs) - 10;
@@ -584,6 +596,9 @@ export function BreadboardView({
   }
 
   function netRoute(netId: string, routeIndex: number): NetRoute | null {
+    const role = model.netRoles.get(netId) ?? "SIGNAL";
+    if (isPowerRole(role)) return null;
+
     const points = (model.netHoles.get(netId) ?? [])
       .map((k) => holePos(k))
       .filter((p): p is Point => Boolean(p))
@@ -592,20 +607,11 @@ export function BreadboardView({
 
     if (points.length < 2) return null;
 
-    const role = model.netRoles.get(netId) ?? "SIGNAL";
     const color = getNetColor(netId, role);
     const centerY = (matrixY("E") + matrixY("F")) / 2;
     const avgY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
     const laneOffset = ROUTE_LANE_OFFSETS[routeIndex % ROUTE_LANE_OFFSETS.length];
-    const powerLaneOffset = role === "VCC" ? 7 : -7;
-    const busY =
-      role === "VCC"
-        ? avgY > centerY ? railY("bot_plus") + powerLaneOffset : railY("top_plus") + powerLaneOffset
-        : role === "VEE"
-          ? avgY > centerY ? railY("bot_minus") + powerLaneOffset : railY("top_minus") + powerLaneOffset
-        : role === "GND"
-          ? avgY > centerY ? railY("bot_minus") + powerLaneOffset : railY("top_minus") + powerLaneOffset
-          : centerY + laneOffset;
+    const busY = centerY + laneOffset;
 
     const minX = Math.min(...points.map((p) => p.x));
     return {
@@ -623,6 +629,35 @@ export function BreadboardView({
   const netRoutes = usedNetIds
     .map((netId, index) => netRoute(netId, index))
     .filter((route): route is NetRoute => Boolean(route));
+
+  const wireSegments: WireSegment[] = Array.from(model.componentTypes.entries()).flatMap(
+    ([componentId, componentType]) => {
+      if (componentType.toLowerCase() !== "wire") return [];
+      const holeKeys = Array.from(model.componentHoles.get(componentId) ?? [])
+        .sort()
+        .slice(0, 2);
+      if (holeKeys.length < 2) return [];
+      const a = holePos(holeKeys[0]);
+      const b = holePos(holeKeys[1]);
+      if (!a || !b) return [];
+      const pins = [
+        ...(model.holes.get(holeKeys[0]) ?? []),
+        ...(model.holes.get(holeKeys[1]) ?? []),
+      ];
+      const ownPin = pins.find((pin) => pin.componentId === componentId);
+      const netId = ownPin?.netId ?? "";
+      const role = model.netRoles.get(netId) ?? "SIGNAL";
+      return [
+        {
+          componentId,
+          netId,
+          color: getNetColor(netId || componentId, role),
+          a,
+          b,
+        },
+      ];
+    },
+  );
 
   return (
     <section className="netlist-panel">
@@ -866,7 +901,41 @@ export function BreadboardView({
             }),
           )}
 
-          {/* 2.5: 电气等势网路线。主干线表示同一 net，支线落到真实孔位。 */}
+          {/* 2.4: 物理跳线。每根 Wire 只画自己的两个端点，避免电源/地 net 被画成一大片。 */}
+          {wireSegments.map((segment) => {
+            const isDim = activeNet !== null && activeNet !== segment.netId;
+            const isActive = activeNet === segment.netId;
+            return (
+              <g
+                key={`wire-segment-${segment.componentId}`}
+                className={`bb-wire-segment${isActive ? " active" : ""}`}
+                style={{ opacity: isDim ? 0.18 : 1 }}
+                onMouseEnter={() => setHoverNet(segment.netId)}
+                onMouseLeave={() => setHoverNet(null)}
+                onClick={() => handleVisualNetClick(segment.netId, pinsForNet(segment.netId))}
+              >
+                <line
+                  x1={segment.a.x}
+                  y1={segment.a.y}
+                  x2={segment.b.x}
+                  y2={segment.b.y}
+                  className="bb-wire-segment-hit"
+                />
+                <line
+                  x1={segment.a.x}
+                  y1={segment.a.y}
+                  x2={segment.b.x}
+                  y2={segment.b.y}
+                  className="bb-wire-segment-line"
+                  stroke={segment.color}
+                  strokeWidth={isActive ? 4.2 : 3.1}
+                />
+                <title>{`${segment.componentId} · ${segment.netId}`}</title>
+              </g>
+            );
+          })}
+
+          {/* 2.5: 普通信号网路线。电源/地轨用 strip + Wire 物理线表达，不再画全局 bus。 */}
           {netRoutes.map((route) => {
             const isDim = activeNet !== null && activeNet !== route.netId;
             const isActive = activeNet === route.netId;

@@ -607,13 +607,30 @@ export function buildBreadboardModel(
     for (const net of netlist.nets) {
       const eNetId = net.electrical_net_id;
       if (!eNetId) continue;
-      if (Array.isArray(net.nodes)) {
-        for (const nodeId of net.nodes) {
-          if (typeof nodeId === "string") {
-            nodeToNetId.set(nodeId, eNetId);
-          }
+      const memberNodeIds = Array.isArray(net.member_node_ids)
+        ? net.member_node_ids
+        : Array.isArray(net.nodes)
+          ? net.nodes
+          : [];
+      for (const nodeId of memberNodeIds) {
+        if (typeof nodeId === "string") {
+          nodeToNetId.set(nodeId, eNetId);
         }
       }
+      const label =
+        typeof net.canonical_name === "string" && net.canonical_name
+          ? net.canonical_name
+          : typeof net.role_label === "string" && net.role_label
+            ? net.role_label
+            : eNetId;
+      model.netLabels.set(eNetId, label);
+      const role =
+        typeof net.power_role === "string" && net.power_role
+          ? net.power_role.toUpperCase()
+          : typeof net.role_label === "string" && /^(VCC|VEE|GND)$/i.test(net.role_label)
+            ? net.role_label.toUpperCase()
+            : inferRole(label);
+      model.netRoles.set(eNetId, role);
     }
   }
 

@@ -185,6 +185,12 @@ export type NetlistV2 = {
     net_id?: string;
     electrical_net_id?: string;
     nodes?: string[];
+    member_node_ids?: string[];
+    member_hole_ids?: string[];
+    power_role?: string;
+    role?: string;
+    role_label?: string;
+    canonical_name?: string;
     pins?: Array<Record<string, unknown>>;
     [key: string]: unknown;
   }>;

@@ -1,5 +1,6 @@
 import type { AgentStatusResponse } from "../types/agent";
 import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
+import { getStageData } from "../utils/pipeline";
 
 type Props = {
   pipeline: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -11,12 +12,20 @@ type Props = {
 export function RawJsonPanel({ pipeline, agent, selectedReferenceId, runtimeMetadata }: Props) {
   const hasRuntimeMetadata = pipeline && "runtime_metadata" in pipeline;
   const metadata = runtimeMetadata ?? (hasRuntimeMetadata ? pipeline.runtime_metadata : {});
+  const currentNetlist =
+    pipeline && "stages" in pipeline
+      ? getStageData(pipeline, "topology").netlist_v2 ?? null
+      : null;
 
   return (
     <section className="raw-panel">
       <details>
         <summary>Reference</summary>
         <pre>{JSON.stringify({ selectedReferenceId }, null, 2)}</pre>
+      </details>
+      <details open>
+        <summary>当前 netlist_v2（S3 topology / 修正后）</summary>
+        <pre>{JSON.stringify(currentNetlist ?? {}, null, 2)}</pre>
       </details>
       <details open>
         <summary>runtime_metadata</summary>
