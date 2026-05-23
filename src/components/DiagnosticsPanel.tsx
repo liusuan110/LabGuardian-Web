@@ -9,6 +9,8 @@ import type {
 } from "../types/pipeline";
 import { asPercent } from "../utils/pipeline";
 import { GnnAdvisoryPanel } from "./GnnAdvisoryPanel";
+import { TemplateMatchPanel } from "./TemplateMatchPanel";
+import { extractTemplateMatch } from "../types/templates";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -190,8 +192,35 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
   const summary = cr?.summary;
   const items = cr?.items ?? [];
 
+  // CADx Phase 0 — top-level `details.template_match` is set by
+  // `compare/orchestrator.py::_attach_template_match` and spread through
+  // `pipeline/stages/s4_validate.py::_logical_s4_response`. Read-only;
+  // never affects diagnostics verdict.
+  const resultDetails =
+    result && typeof result === "object" && "details" in result
+      ? ((result as { details?: Record<string, unknown> }).details ?? undefined)
+      : undefined;
+  const templateMatch = extractTemplateMatch(resultDetails);
+
   const isLogicalGraph = summary?.comparison_mode === "logical_graph";
   const logicCorrect = summary?.logic_correct === true;
+  // 是否选了 reference 直接决定后端会不会跑 GNN —— 没选 ref 时整条
+  // comparison + GNN 链路被跳过。我们用 comparison_report 是否存在来推断。
+  const hasReference = cr !== null;
+
+  // Debug: 让用户在 F12 → Console 里立刻能看到 GNN 链路的状态，
+  // 不用翻 Network 响应体。生产环境无副作用（console.debug 不打印）。
+  if (typeof window !== "undefined") {
+    console.debug("[GNN diag]", {
+      hasComparisonReport: cr !== null,
+      comparison_mode: summary?.comparison_mode,
+      isLogicalGraph,
+      logicCorrect,
+      gnn_present: !!summary?.gnn,
+      gnn_n_edges: summary?.gnn?.n_edges_scored,
+      gnn_disabled_reason: summary?.gnn_disabled_reason,
+    });
+  }
   const similarity = typeof summary?.similarity === "number" ? summary.similarity : null;
   const referenceName = summary?.reference_name;
   const totalItemCount = typeof summary?.total_item_count === "number" ? summary.total_item_count : items.length;
@@ -322,14 +351,21 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
         </section>
       ) : null}
 
-      {/* ===== GNN 复核横幅 + "X 引脚可能错接，建议接到 Y" 列表卡 ===== */}
-      {isLogicalGraph ? (
-        <GnnAdvisoryPanel
-          gnn={summary?.gnn}
-          ruleLogicCorrect={logicCorrect}
-          gnnDisabledReason={summary?.gnn_disabled_reason}
-        />
-      ) : null}
+      {/* ===== GNN 复核面板 ===== */}
+      {/* 移出 isLogicalGraph gate —— 让面板在"没选 ref"时也能显示提示，
+          避免静默隐藏让用户误以为 GNN 没工作 */}
+      <GnnAdvisoryPanel
+        gnn={summary?.gnn}
+        ruleLogicCorrect={logicCorrect}
+        gnnDisabledReason={summary?.gnn_disabled_reason}
+        hasReference={hasReference}
+      />
+
+      {/* ===== CADx Phase 0 · AI 拓扑识别面板（只读，实验功能） ===== */}
+      {/* 与 GnnAdvisoryPanel 并行展示，提供 6 个 canonical 拓扑的 top-K 假设。
+          Phase 0 仅供对比，不参与 verdict 决策。Phase 1 会接入 GNN-A 替换为
+          主路径并把识别结果反推到 ReferenceSelector。 */}
+      <TemplateMatchPanel templateMatch={templateMatch} />
 
       {/* ===== 系统自动推断 / 对称识别 / 端口标注摘要 ===== */}
       {isLogicalGraph && (roleInferenceApplied || autoSymmetryGroups.length > 0 || portAnnotationsApplied.length > 0) ? (

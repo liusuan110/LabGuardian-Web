@@ -3371,6 +3371,87 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+/* Phase D · v5 (2026-05-21) — 参考电路绑定的 IC 子型号 chip。
+   显示在 .reference-card 内部，告知用户"AI 已经识别芯片型号是 UA741"。
+   样式风格统一参考既有 .gnn-* 标签，避免视觉冲突。 */
+.reference-ic-subtype-binding {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f0f9f4;
+  border: 1px solid #c4e2cf;
+  color: #2a5934;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reference-ic-subtype-binding svg {
+  flex-shrink: 0;
+  color: #2a8049;
+}
+
+/* IcAnnotationPanel · 芯片型号 (part_subtype) 徽章。
+   - bound (由参考自动绑定)  → 绿色，含 "来自参考" 后缀
+   - vision (视觉直出)        → 蓝色，无后缀
+   - empty (未识别)           → 灰色
+   样式与 .reference-ic-subtype-binding 的 chip 视觉协调一致。 */
+.ic-subtype-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ic-subtype-badge-bound {
+  background: #2a8049;
+  color: #fff;
+}
+
+.ic-subtype-badge-vision {
+  background: #2563eb;
+  color: #fff;
+}
+
+.ic-subtype-badge-empty {
+  background: #e5e7eb;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ic-subtype-badge .ic-subtype-name {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.ic-subtype-badge-suffix {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.92;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.reference-ic-subtype-binding .ic-subtype-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #2a8049;
+  color: #fff;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow-wrap: normal;
+}
+
 .logic-compare-card {
   display: grid;
   gap: 8px;
@@ -4157,6 +4238,175 @@ summary:focus-visible,
   color: #8a6e3a;
 }
 
+/* ============================================================ */
+/* Phase D · v5 (2026-05-21) — "AI 复核通过" 绿色横幅            */
+/* ============================================================ */
+/* 高频成功路径：规则 OK + GNN 也无异常，渲染 subtle 绿色横幅。  */
+/* 视觉上比错误横幅更克制 —— 不抢主要内容，但用户能感知 AI 在工作。*/
+.gnn-advisory-success {
+  border-color: #c4e2cf;
+  background: #f0f9f4;
+}
+
+.gnn-advisory-banner-success {
+  background: #f0f9f4;
+}
+
+.gnn-advisory-banner-success > svg {
+  color: #2a8049;
+}
+
+.gnn-advisory-banner-success strong {
+  color: #1f5b32;
+}
+
+.gnn-advisory-banner-success p {
+  color: #2a5934;
+}
+
+.gnn-advisory-success .gnn-advisory-conf {
+  background: #2a8049;
+  color: #fff;
+  border-color: #2a8049;
+}
+
+.gnn-advisory-success .gnn-advisory-footer {
+  border-top-color: rgba(42, 128, 73, 0.2);
+  color: #4a7558;
+}
+
+/* ============================================================ */
+/* FE-GnnViz-2 · 每条边的 p_correct 置信度条                     */
+/* ============================================================ */
+.gnn-edge-predictions {
+  margin: 8px 0 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.gnn-edge-predictions > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.gnn-edge-predictions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gnn-edge-predictions[open] > summary > svg {
+  transform: rotate(180deg);
+  transition: transform 120ms ease;
+}
+
+.gnn-edge-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gnn-edge-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 220px);
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+
+.gnn-edge-row:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.gnn-edge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gnn-edge-label code {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.gnn-arrow {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.gnn-edge-bar-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.gnn-edge-bar-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.07);
+  overflow: hidden;
+}
+
+.gnn-edge-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 240ms ease;
+}
+
+.gnn-edge-bar-high {
+  background: #2a8049;
+}
+
+.gnn-edge-bar-mid {
+  background: #d97706;
+}
+
+.gnn-edge-bar-low {
+  background: #dc2626;
+}
+
+.gnn-edge-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.gnn-edge-pct-high {
+  color: #2a8049;
+}
+
+.gnn-edge-pct-mid {
+  color: #b46307;
+}
+
+.gnn-edge-pct-low {
+  color: #b91c1c;
+}
+
 /* GNN 缺席（advisor 没跑）单行注脚 —— 不占强视觉，只解释 "为什么没看到 GNN" */
 .gnn-absent-notice {
   display: flex;
@@ -4189,4 +4439,431 @@ summary:focus-visible,
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.05);
   color: var(--subtle);
+}
+
+/* ===== CADx Phase 0 · TemplateMatchPanel ===== */
+/* Visual language mirrors GnnAdvisoryPanel: same banner+row pattern, same
+   color tiers (high/mid/low), so the two side-by-side panels read as a
+   unified diagnostic surface rather than two competing widgets. */
+.template-match-panel {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(120, 80, 200, 0.18);
+  border-radius: 8px;
+  background: rgba(120, 80, 200, 0.04);
+}
+
+.template-match-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.template-match-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: rgba(80, 50, 140, 0.95);
+}
+
+.template-match-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(120, 80, 200, 0.15);
+  color: rgba(80, 50, 140, 0.9);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.template-match-empty {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.template-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.template-match-row {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border-left: 3px solid transparent;
+}
+
+.template-match-row-high {
+  border-left-color: rgb(40, 160, 80);
+  background: rgba(40, 160, 80, 0.05);
+}
+.template-match-row-mid {
+  border-left-color: rgb(220, 160, 40);
+  background: rgba(220, 160, 40, 0.05);
+}
+.template-match-row-low {
+  border-left-color: rgb(200, 80, 80);
+  background: rgba(200, 80, 80, 0.04);
+}
+
+.template-match-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.template-match-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.template-match-band {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.template-match-band-high {
+  background: rgba(40, 160, 80, 0.15);
+  color: rgb(20, 110, 50);
+}
+.template-match-band-mid {
+  background: rgba(220, 160, 40, 0.15);
+  color: rgb(150, 100, 20);
+}
+.template-match-band-low {
+  background: rgba(200, 80, 80, 0.12);
+  color: rgb(170, 50, 50);
+}
+
+.template-match-bar-track {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.template-match-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 200ms ease-out;
+}
+.template-match-bar-fill-high { background: rgb(40, 160, 80); }
+.template-match-bar-fill-mid  { background: rgb(220, 160, 40); }
+.template-match-bar-fill-low  { background: rgb(200, 80, 80); }
+
+.template-match-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.template-match-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.template-match-tag-muted { opacity: 0.7; }
+
+.template-match-tag > code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+}
+
+.template-match-roles {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.template-match-roles > summary {
+  cursor: pointer;
+  color: var(--subtle, #888);
+  user-select: none;
+}
+.template-match-roles ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.template-match-roles code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+}
+
+.template-match-missing {
+  margin: 6px 0 0;
+  font-size: 11px;
+}
+.template-match-missing-optional { opacity: 0.65; }
+.template-match-missing-tag {
+  margin-left: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  padding: 1px 4px;
+  background: rgba(200, 80, 80, 0.1);
+  color: rgb(170, 50, 50);
+  border-radius: 2px;
+}
+
+.template-match-forbidden {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(170, 50, 50);
+}
+
+/* ===== CADx Phase 1 · TopologySuggestionBanner ===== */
+/* AI 推荐面板放在 ReferenceSelector 下拉之上。配色用蓝色系（区别于
+   GnnAdvisoryPanel 的红/绿和 TemplateMatchPanel 的紫色）—— 三个 AI
+   信息源并存时用户一眼能分清。 */
+
+.topology-suggestion-panel {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(20, 110, 200, 0.2);
+  border-radius: 8px;
+  background: rgba(20, 110, 200, 0.04);
+}
+
+.topology-suggestion-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.topology-suggestion-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(15, 80, 160);
+}
+
+.topology-suggestion-meta {
+  font-size: 10px;
+  color: var(--subtle, #888);
+  font-variant-numeric: tabular-nums;
+}
+
+.topology-suggestion-retry {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid rgba(20, 110, 200, 0.3);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.8);
+  color: rgb(15, 80, 160);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.topology-suggestion-retry:hover {
+  background: rgba(20, 110, 200, 0.1);
+}
+
+.topology-suggestion-loading {
+  margin: 4px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.topology-suggestion-spin {
+  animation: topology-spin 1s linear infinite;
+}
+@keyframes topology-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.topology-suggestion-error {
+  margin: 4px 0;
+  font-size: 11px;
+}
+
+.topology-suggestion-disabled {
+  margin: 4px 0;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topology-suggestion-reason-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  padding: 1px 4px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  color: var(--subtle, #888);
+}
+
+/* ---- Consensus banner (above hypothesis list) ---- */
+.topology-suggestion-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.topology-suggestion-banner code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  padding: 1px 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+}
+
+.topology-suggestion-banner-high {
+  background: rgba(40, 160, 80, 0.1);
+  color: rgb(20, 110, 50);
+}
+.topology-suggestion-banner-mid {
+  background: rgba(20, 110, 200, 0.1);
+  color: rgb(15, 80, 160);
+}
+.topology-suggestion-banner-low {
+  background: rgba(150, 150, 150, 0.15);
+  color: var(--subtle, #666);
+}
+.topology-suggestion-banner-warn,
+.topology-suggestion-banner-divergence {
+  background: rgba(220, 160, 40, 0.15);
+  color: rgb(150, 100, 20);
+  border-left: 3px solid rgb(220, 160, 40);
+}
+
+/* ---- Hypothesis rows ---- */
+.topology-suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.topology-suggestion-row {
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+}
+.topology-suggestion-row-high { border-left-color: rgb(40, 160, 80); }
+.topology-suggestion-row-mid  { border-left-color: rgb(220, 160, 40); }
+.topology-suggestion-row-low  { border-left-color: rgb(180, 180, 180); }
+.topology-suggestion-row-selected {
+  background: rgba(20, 110, 200, 0.06);
+}
+
+.topology-suggestion-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.topology-suggestion-rank {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--subtle, #888);
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.topology-suggestion-name {
+  font-size: 12px;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topology-suggestion-pct {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+.topology-suggestion-pct-high { color: rgb(20, 110, 50); }
+.topology-suggestion-pct-mid  { color: rgb(150, 100, 20); }
+.topology-suggestion-pct-low  { color: rgb(140, 140, 140); }
+
+.topology-suggestion-adopt {
+  font-size: 10px;
+  padding: 2px 7px;
+  border: 1px solid rgb(15, 80, 160);
+  border-radius: 3px;
+  background: rgb(15, 80, 160);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.topology-suggestion-adopt:hover { background: rgb(10, 60, 130); }
+.topology-suggestion-adopt:disabled {
+  cursor: default;
+  background: rgba(40, 160, 80, 0.15);
+  border-color: rgb(40, 160, 80);
+  color: rgb(20, 110, 50);
+}
+.topology-suggestion-adopt-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.topology-suggestion-no-ref {
+  font-size: 10px;
+  color: var(--subtle, #aaa);
+  width: 32px;
+  text-align: center;
+}
+
+.topology-suggestion-bar-track {
+  height: 3px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.topology-suggestion-bar-fill {
+  height: 100%;
+  transition: width 200ms ease-out;
+}
+.topology-suggestion-bar-fill-high { background: rgb(40, 160, 80); }
+.topology-suggestion-bar-fill-mid  { background: rgb(220, 160, 40); }
+.topology-suggestion-bar-fill-low  { background: rgb(180, 180, 180); }
+
+.topology-suggestion-ref-id {
+  display: inline-block;
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  color: var(--subtle, #999);
+}
+
+.topology-suggestion-footer {
+  margin: 8px 0 0;
+  font-size: 10px;
+  font-style: italic;
 }

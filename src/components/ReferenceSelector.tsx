@@ -1,4 +1,7 @@
+import { Cpu } from "lucide-react";
 import type { LogicalReference, ReferenceSummary } from "../types/pipeline";
+import type { TopologySuggestResponse } from "../types/topology";
+import { TopologySuggestionBanner } from "./TopologySuggestionBanner";
 
 type Props = {
   references: ReferenceSummary[];
@@ -9,7 +12,37 @@ type Props = {
   currentReferenceStatus: "idle" | "loading" | "success" | "error";
   currentReferenceError: string;
   onChange: (referenceId: string | null) => void;
+  /**
+   * CADx Phase 1 — AI topology suggestion (GNN-A) plumbing.
+   * All four props are optional so the component stays backwards-compatible
+   * with callers that haven't wired the suggestion fetcher yet.
+   */
+  topologySuggestion?: TopologySuggestResponse | null;
+  topologySuggestionLoading?: boolean;
+  topologySuggestionError?: string | null;
+  onRetryTopologySuggestion?: () => void;
 };
+
+/**
+ * 从 reference 的 components 中抽出所有显式声明 subtype 的 IC。
+ *
+ * 后端 `apply_reference_ic_subtypes` 会用这些 subtype 自动绑定到面板上的
+ * 对应芯片（component_id 精确匹配 / 单 IC 整图兜底）。前端显示这个绑定
+ * 关系让用户对"AI 已经识别这是 UA741"有可感知的反馈。
+ */
+function extractReferenceIcSubtypes(
+  reference: LogicalReference | null,
+): Array<{ ref_id: string; subtype: string }> {
+  if (!reference) return [];
+  const out: Array<{ ref_id: string; subtype: string }> = [];
+  for (const comp of reference.components ?? []) {
+    if ((comp.type || "").trim() !== "IC") continue;
+    const subtype = (comp.subtype || "").trim();
+    if (!subtype) continue;
+    out.push({ ref_id: comp.ref_id, subtype });
+  }
+  return out;
+}
 
 export function ReferenceSelector({
   references,
@@ -20,12 +53,28 @@ export function ReferenceSelector({
   currentReferenceStatus,
   currentReferenceError,
   onChange,
+  topologySuggestion = null,
+  topologySuggestionLoading = false,
+  topologySuggestionError = null,
+  onRetryTopologySuggestion,
 }: Props) {
   const selected = references.find((item) => item.reference_id === selectedReferenceId);
   const selectedName = currentReference?.name ?? selected?.name ?? selectedReferenceId ?? "";
   const selectedDescription = currentReference?.description ?? selected?.description;
   const componentCount = currentReference?.components?.length ?? selected?.component_count ?? 0;
   const netCount = currentReference?.nets?.length ?? selected?.net_count ?? 0;
+  // IC 子型号绑定：参考电路里显式声明的所有 IC 芯片型号 (UA741 / LM358 …)。
+  // 后端 apply_reference_ic_subtypes 会把这些 subtype 自动落到面板上的对应芯片。
+  const icSubtypes = extractReferenceIcSubtypes(currentReference);
+  const uniqueSubtypes = Array.from(new Set(icSubtypes.map((item) => item.subtype)));
+
+  // CADx Phase 1: AI 推荐面板浮在手动选择上方。可见性策略：
+  //   - 有 suggestion / loading / error 任一时显示
+  //   - 完全 idle 时隐藏（首次 pipeline 跑完前）
+  const showSuggestionBanner =
+    topologySuggestion !== null ||
+    topologySuggestionLoading ||
+    topologySuggestionError !== null;
 
   return (
     <section className="reference-panel">
@@ -33,6 +82,17 @@ export function ReferenceSelector({
       <p className="muted">
         参考电路只用于逻辑拓扑比较，不要求面包板孔位、元件编号或跳线走向一致。
       </p>
+
+      {showSuggestionBanner ? (
+        <TopologySuggestionBanner
+          suggestion={topologySuggestion}
+          loading={topologySuggestionLoading}
+          error={topologySuggestionError}
+          selectedReferenceId={selectedReferenceId}
+          onAdopt={(refId) => onChange(refId)}
+          onRetry={() => onRetryTopologySuggestion?.()}
+        />
+      ) : null}
 
       <select
         value={selectedReferenceId ?? ""}
@@ -67,6 +127,24 @@ export function ReferenceSelector({
           </span>
           {selectedDescription ? <p>{selectedDescription}</p> : null}
           <code>{selected.reference_id}</code>
+          {uniqueSubtypes.length > 0 ? (
+            <div className="reference-ic-subtype-binding" aria-label="参考电路绑定的芯片型号">
+              <Cpu size={14} />
+              <span>本电路使用</span>
+              {uniqueSubtypes.map((subtype) => (
+                <code key={subtype} className="ic-subtype-chip">
+                  {subtype}
+                </code>
+              ))}
+              <span>
+                芯片
+                {icSubtypes.length > uniqueSubtypes.length
+                  ? `（共 ${icSubtypes.length} 颗）`
+                  : ""}
+                ，识别后会自动绑定到面板上对应的 IC。
+              </span>
+            </div>
+          ) : null}
           {currentReferenceStatus === "loading" ? <p className="muted">正在读取完整 reference JSON...</p> : null}
           {currentReferenceStatus === "error" ? (
             <p className="error-text">完整 reference JSON 加载失败：{currentReferenceError}</p>

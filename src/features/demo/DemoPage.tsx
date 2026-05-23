@@ -22,6 +22,7 @@ import { useAgentChat } from "./useAgentChat";
 import { useBackendStatus } from "./useBackendStatus";
 import { usePipelineRun } from "./usePipelineRun";
 import { useReferences } from "./useReferences";
+import { useTopologySuggestion } from "./useTopologySuggestion";
 
 function parseComparisonReport(result: unknown): ComparisonReport | null {
   if (!result || typeof result !== "object") return null;
@@ -45,6 +46,8 @@ export function DemoPage() {
   useReferences(dispatch, state.selectedReferenceId);
   const { send } = useAgentChat(state, dispatch);
   const { execute } = usePipelineRun(state, dispatch, send);
+  // CADx Phase 1 — auto-fetch GNN-A suggestion when pipeline produces netlist_v2.
+  const topologySuggestion = useTopologySuggestion(state.pipelineResult);
 
   const cr = parseComparisonReport(state.pipelineResult);
   const rawItems = cr?.items ?? [];
@@ -177,6 +180,10 @@ export function DemoPage() {
             onChange={(referenceId) =>
               dispatch({ type: "select-reference", referenceId })
             }
+            topologySuggestion={topologySuggestion.suggestion}
+            topologySuggestionLoading={topologySuggestion.loading}
+            topologySuggestionError={topologySuggestion.error}
+            onRetryTopologySuggestion={topologySuggestion.retry}
           />
         </div>
 

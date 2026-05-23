@@ -5,6 +5,7 @@ import type {
   IcNotchDirection,
   PipelineResult,
   PortVisualizationResult,
+  ReferenceIcSubtypeRecord,
 } from "../types/pipeline";
 import {
   getIcAnnotationComponents,
@@ -12,6 +13,59 @@ import {
   icAnnotationKey,
   normalizePackageType,
 } from "../utils/icAnnotations";
+
+/**
+ * 从 result.runtime_metadata.reference_ic_subtypes_applied 提取记录列表，
+ * 按 component_id 索引。前端用来在 IC 行旁边标 "由参考绑定" 徽章。
+ */
+function buildSubtypeSourceMap(
+  result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null,
+): Map<string, ReferenceIcSubtypeRecord> {
+  const map = new Map<string, ReferenceIcSubtypeRecord>();
+  if (!result) return map;
+  // PipelineResult 持有 runtime_metadata；其他形态可能没有这个字段。
+  const meta = (result as { runtime_metadata?: Record<string, unknown> }).runtime_metadata;
+  if (!meta) return map;
+  const records = meta.reference_ic_subtypes_applied;
+  if (!Array.isArray(records)) return map;
+  for (const item of records) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const cid = String(record.component_id ?? "").trim();
+    const subtype = String(record.part_subtype ?? "").trim();
+    if (!cid || !subtype) continue;
+    map.set(cid, {
+      component_id: cid,
+      part_subtype: subtype,
+      source: String(record.source ?? "unknown"),
+      matched_by: String(record.matched_by ?? "unknown"),
+    });
+  }
+  return map;
+}
+
+function subtypeBadge(
+  partSubtype: string | undefined,
+  sourceRecord: ReferenceIcSubtypeRecord | undefined,
+) {
+  const value = (partSubtype || "").trim();
+  if (!value) {
+    return <span className="ic-subtype-badge ic-subtype-badge-empty">未识别</span>;
+  }
+  const fromReference = sourceRecord?.source === "reference_circuit";
+  const className = fromReference
+    ? "ic-subtype-badge ic-subtype-badge-bound"
+    : "ic-subtype-badge ic-subtype-badge-vision";
+  const title = fromReference
+    ? `由参考电路自动绑定 (matched_by=${sourceRecord?.matched_by})`
+    : "来自视觉识别 (OCR / 库匹配)";
+  return (
+    <span className={className} title={title}>
+      <span className="ic-subtype-name">{value}</span>
+      {fromReference ? <span className="ic-subtype-badge-suffix">来自参考</span> : null}
+    </span>
+  );
+}
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -48,6 +102,9 @@ export function IcAnnotationPanel({
     const componentId = component.component_id;
     return componentId ? getIcNotchDirection(icAnnotations, componentId) === "unknown" : false;
   });
+  // 把 runtime_metadata.reference_ic_subtypes_applied[] 索引一下，用于在每个
+  // IC 行旁标"由参考绑定"徽章。读不到也无所谓 — badge 会回退到"未识别"。
+  const subtypeSourceMap = buildSubtypeSourceMap(result);
 
   function handleDirectionChange(componentId: string, packageType: string | undefined, direction: IcNotchDirection) {
     const annotation: IcAnnotation = {
@@ -105,6 +162,7 @@ export function IcAnnotationPanel({
           <thead>
             <tr>
               <th>component_id</th>
+              <th>芯片型号</th>
               <th>后端 package_type</th>
               <th>notch_direction</th>
             </tr>
@@ -113,9 +171,11 @@ export function IcAnnotationPanel({
             {icComponents.map((component) => {
               const componentId = component.component_id ?? "";
               const direction = getIcNotchDirection(icAnnotations, componentId);
+              const sourceRecord = subtypeSourceMap.get(componentId);
               return (
                 <tr key={componentId}>
                   <td className="net-cell">{componentId}</td>
+                  <td>{subtypeBadge(component.part_subtype, sourceRecord)}</td>
                   <td>
                     <span className="component-type">{displayPackageType(component.package_type)}</span>
                   </td>

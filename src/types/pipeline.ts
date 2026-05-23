@@ -178,6 +178,27 @@ export type PipelineComponent = {
   confidence?: number;
   orientation?: number;
   pins?: Pin[];
+  /**
+   * IC 子型号 (UA741 / LM358 / NE555 ...)，由后端
+   * `apply_reference_ic_subtypes` 根据选定的参考电路自动绑定，
+   * 或由 vision pipeline 的 OCR / 库匹配设置。
+   *
+   * Source 信息见 `PipelineResult.runtime_metadata.reference_ic_subtypes_applied[]`。
+   */
+  part_subtype?: string;
+  metadata?: Record<string, unknown>;
+};
+
+/**
+ * `runtime_metadata.reference_ic_subtypes_applied[]` 中的一条记录。
+ * 后端在 `apply_reference_ic_subtypes` 自动绑定 IC 型号后写入，用于
+ * 前端区分"由参考自动绑定" vs "vision 直出" vs "用户手动覆盖"。
+ */
+export type ReferenceIcSubtypeRecord = {
+  component_id: string;
+  part_subtype: string;
+  source: "reference_circuit" | string;
+  matched_by: "component_id" | "single_reference_ic" | string;
 };
 
 export type NetlistV2 = {
