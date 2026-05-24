@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": backendTarget,
+      "/knowledge": backendTarget,
       "/health": backendTarget,
       "/version": backendTarget,
     },

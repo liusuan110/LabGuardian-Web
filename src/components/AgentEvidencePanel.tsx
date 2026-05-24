@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle2, CircleAlert, Gauge } from "lucide-react";
+import { BookOpen, CheckCircle2, CircleAlert, Gauge, Image as ImageIcon } from "lucide-react";
 import type { AgentEvidence } from "../types/agent";
 
 type Props = {
@@ -16,6 +16,20 @@ type ParsedAgentEvidence = {
     passed: boolean | null;
     issues: string[];
   };
+  circuitReferences: CircuitReference[];
+};
+
+type CircuitReference = {
+  circuitId: string;
+  name: string;
+  summary: string;
+  image: string;
+  imageUrl: string;
+  visibleComponents: string[];
+  visibleNodes: string[];
+  notes: string[];
+  matchedFeatures: string[];
+  score?: number;
 };
 
 function readString(value: unknown): string {
@@ -24,6 +38,65 @@ function readString(value: unknown): string {
 
 function readStringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function apiBaseUrl() {
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+}
+
+function knowledgeAssetUrl(path: string) {
+  if (!path) return "";
+  if (/^(data:|https?:\/\/)/.test(path)) return path;
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  return `${apiBaseUrl()}/${encodeURI(normalized)}`;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function extractCircuitReferences(evidence: AgentEvidence[] = []): CircuitReference[] {
+  const refs: CircuitReference[] = [];
+  for (const item of evidence) {
+    if (item.evidence_type !== "tool_results") continue;
+    const results = Array.isArray(item.payload.results) ? item.payload.results : [];
+    for (const rawResult of results) {
+      if (!rawResult || typeof rawResult !== "object") continue;
+      const result = rawResult as { tool_name?: unknown; payload?: unknown };
+      if (result.tool_name !== "circuit_lookup_tool") continue;
+      const payload = result.payload && typeof result.payload === "object" ? result.payload as Record<string, unknown> : {};
+      const circuits = Array.isArray(payload.circuits) ? payload.circuits : [];
+      for (const rawCircuit of circuits.slice(0, 2)) {
+        if (!rawCircuit || typeof rawCircuit !== "object") continue;
+        const circuit = rawCircuit as Record<string, unknown>;
+        const image = readString(circuit.image);
+        const annotations =
+          circuit.image_annotations && typeof circuit.image_annotations === "object"
+            ? circuit.image_annotations as Record<string, unknown>
+            : {};
+        refs.push({
+          circuitId: readString(circuit.circuit_id),
+          name: readString(circuit.name) || readString(circuit.circuit_id) || "典型电路",
+          summary: readString(circuit.summary),
+          image,
+          imageUrl: knowledgeAssetUrl(image),
+          visibleComponents: readStringList(annotations.visible_components),
+          visibleNodes: readStringList(annotations.visible_nodes),
+          notes: readStringList(annotations.notes),
+          matchedFeatures: readStringList(circuit.matched_features),
+          score: readNumber(circuit.score),
+        });
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return refs.filter((ref) => {
+    const key = ref.circuitId || ref.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function parseAgentEvidence(evidence: AgentEvidence[] = []): ParsedAgentEvidence {
@@ -51,6 +124,7 @@ function parseAgentEvidence(evidence: AgentEvidence[] = []): ParsedAgentEvidence
           issues: readStringList(verificationItem.payload.issues),
         }
       : undefined,
+    circuitReferences: extractCircuitReferences(evidence),
   };
 }
 
@@ -72,7 +146,7 @@ function verifierLabel(passed: boolean | null) {
 
 export function AgentEvidencePanel({ evidence }: Props) {
   const parsed = parseAgentEvidence(evidence);
-  if (!parsed.intent && !parsed.concept && !parsed.verification) {
+  if (!parsed.intent && !parsed.concept && !parsed.verification && parsed.circuitReferences.length === 0) {
     return null;
   }
 
@@ -96,6 +170,40 @@ export function AgentEvidencePanel({ evidence }: Props) {
           {parsed.concept.summary ? <p>{parsed.concept.summary}</p> : null}
         </div>
       ) : null}
+
+      {parsed.circuitReferences.map((ref) => (
+        <div className="agent-circuit-card" key={ref.circuitId || ref.name}>
+          <div className="agent-circuit-head">
+            <ImageIcon size={13} />
+            <span>{ref.name}</span>
+            {ref.score !== undefined ? <code>score {ref.score.toFixed(1)}</code> : null}
+          </div>
+          {ref.imageUrl ? (
+            <img
+              className="agent-circuit-image"
+              src={ref.imageUrl}
+              alt={`${ref.name} 参考电路图`}
+              loading="lazy"
+            />
+          ) : null}
+          {ref.summary ? <p>{ref.summary}</p> : null}
+          {ref.visibleComponents.length > 0 ? (
+            <div className="agent-circuit-tags" aria-label="图中可见元件">
+              {ref.visibleComponents.slice(0, 12).map((item) => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
+          ) : null}
+          {ref.visibleNodes.length > 0 || ref.matchedFeatures.length > 0 ? (
+            <small>
+              {ref.visibleNodes.length > 0 ? `可见节点：${ref.visibleNodes.slice(0, 8).join("、")}` : ""}
+              {ref.visibleNodes.length > 0 && ref.matchedFeatures.length > 0 ? " · " : ""}
+              {ref.matchedFeatures.length > 0 ? `命中依据：${ref.matchedFeatures.slice(0, 3).join("、")}` : ""}
+            </small>
+          ) : null}
+          {ref.notes.length > 0 ? <small>{ref.notes[0]}</small> : null}
+        </div>
+      ))}
 
       {parsed.verification ? (
         <div className="agent-evidence-row">
