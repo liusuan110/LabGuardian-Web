@@ -7,7 +7,7 @@ import type {
   ComparisonReportItem,
   EvidenceRef,
 } from "../types/pipeline";
-import { asPercent } from "../utils/pipeline";
+import { asPercent, riskLabel } from "../utils/pipeline";
 import { GnnAdvisoryPanel } from "./GnnAdvisoryPanel";
 import { TemplateMatchPanel } from "./TemplateMatchPanel";
 import { extractTemplateMatch } from "../types/templates";
@@ -208,19 +208,6 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
   // comparison + GNN 链路被跳过。我们用 comparison_report 是否存在来推断。
   const hasReference = cr !== null;
 
-  // Debug: 让用户在 F12 → Console 里立刻能看到 GNN 链路的状态，
-  // 不用翻 Network 响应体。生产环境无副作用（console.debug 不打印）。
-  if (typeof window !== "undefined") {
-    console.debug("[GNN diag]", {
-      hasComparisonReport: cr !== null,
-      comparison_mode: summary?.comparison_mode,
-      isLogicalGraph,
-      logicCorrect,
-      gnn_present: !!summary?.gnn,
-      gnn_n_edges: summary?.gnn?.n_edges_scored,
-      gnn_disabled_reason: summary?.gnn_disabled_reason,
-    });
-  }
   const similarity = typeof summary?.similarity === "number" ? summary.similarity : null;
   const referenceName = summary?.reference_name;
   const totalItemCount = typeof summary?.total_item_count === "number" ? summary.total_item_count : items.length;
@@ -262,7 +249,7 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
           {riskIcon(hasPipelineFields ? result?.risk_level : undefined)}
           <span>风险等级</span>
         </div>
-        <strong>{hasPipelineFields ? result?.risk_level ?? "等待诊断" : "等待诊断"}</strong>
+        <strong>{hasPipelineFields ? riskLabel(result?.risk_level) : "等待诊断"}</strong>
         <p>
           完成度 {hasPipelineFields && result && "progress" in result ? asPercent(result.progress) : "-"} · 相似度{" "}
           {hasPipelineFields && result && "similarity" in result ? asPercent(result.similarity) : "-"}

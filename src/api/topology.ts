@@ -1,6 +1,5 @@
 import { requestJson } from "./client";
 import type {
-  TopologyModelInfo,
   TopologySuggestRequest,
   TopologySuggestResponse,
 } from "../types/topology";
@@ -29,19 +28,5 @@ export async function suggestTopology(
       body: JSON.stringify(payload),
     },
     15_000,
-  );
-}
-
-/**
- * GET /api/v1/topology/model-info
- *
- * Cheap call — does NOT trigger model loading. Frontend uses this on
- * boot to decide whether to show the AI-recommendation panel.
- */
-export async function getTopologyModelInfo(): Promise<TopologyModelInfo> {
-  return requestJson<TopologyModelInfo>(
-    "/api/v1/topology/model-info",
-    { method: "GET" },
-    5_000,
   );
 }

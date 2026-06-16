@@ -74,27 +74,6 @@ function getCurrentNets(result: Props["result"]): CurrentNetRow[] {
     });
   }
 
-  if ("nets" in result && Array.isArray(result.nets)) {
-    return result.nets.flatMap((net) => {
-      const record = asRecord(net);
-      const electricalNetId = stringField(record, "electrical_net_id") ?? stringField(record, "net_id");
-      if (!electricalNetId) return [];
-      return [
-        {
-          electricalNetId,
-          powerRole: stringField(record, "power_role"),
-          componentCount: 0,
-          holeCount: Array.isArray(record.member_hole_ids) ? record.member_hole_ids.length : 0,
-          nodeCount: Array.isArray(record.member_node_ids)
-            ? record.member_node_ids.length
-            : Array.isArray(record.member_port_ids)
-              ? record.member_port_ids.length
-              : 0,
-        },
-      ];
-    });
-  }
-
   return [];
 }
 

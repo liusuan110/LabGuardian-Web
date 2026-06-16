@@ -23,11 +23,11 @@ export function RawJsonPanel({ pipeline, agent, selectedReferenceId, runtimeMeta
         <summary>Reference</summary>
         <pre>{JSON.stringify({ selectedReferenceId }, null, 2)}</pre>
       </details>
-      <details open>
+      <details>
         <summary>当前 netlist_v2（S3 topology / 修正后）</summary>
         <pre>{JSON.stringify(currentNetlist ?? {}, null, 2)}</pre>
       </details>
-      <details open>
+      <details>
         <summary>runtime_metadata</summary>
         <pre>{JSON.stringify(metadata, null, 2)}</pre>
       </details>

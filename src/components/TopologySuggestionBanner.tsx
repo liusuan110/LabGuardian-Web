@@ -153,6 +153,9 @@ function ConsensusBanner({
 
   if (diverged) {
     const topPrediction = suggestion.gnn_predictions[0];
+    // An enabled+diverged consensus can still carry an empty prediction list;
+    // fall through to the non-divergence banner instead of dereferencing undefined.
+    if (!topPrediction) return null;
     return (
       <div className="topology-suggestion-banner topology-suggestion-banner-divergence">
         <X size={14} />

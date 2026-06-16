@@ -45,37 +45,6 @@ export function getPinComponents(result: PipelineResult | CircuitAnalysisResult 
 
 export function getMappedComponents(result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null): PipelineComponent[] {
   if (!result) return [];
-  
-  if ("components" in result) {
-    const circuitResult = result as CircuitAnalysisResult;
-    if ("pins" in (circuitResult.components[0] || {})) {
-      return circuitResult.components.map((comp) => ({
-        component_id: comp.component_id,
-        component_type: comp.component_type,
-        class_name: comp.component_type,
-        package_type: comp.package_type,
-        bbox: comp.bbox,
-        confidence: comp.confidence,
-        pins: comp.pins.map((pin) => ({
-          pin_id: pin.pin_id,
-          pin_name: pin.pin_name,
-          pin_display_name: pin.pin_display_name,
-          polarity_role: pin.polarity_role,
-          polarity_candidate_role: pin.polarity_candidate_role,
-          hole_id: pin.hole_id,
-          electrical_node_id: pin.electrical_node_id,
-          electrical_net_id: pin.electrical_net_id,
-          x_image: pin.x_image,
-          y_image: pin.y_image,
-          x_warp: pin.x_warp,
-          y_warp: pin.y_warp,
-          source: pin.source,
-          source_by_view: pin.source_by_view,
-        })),
-      }));
-    }
-  }
-  
   const components = getStageData(result as PipelineResult, "mapping").components;
   return Array.isArray(components) ? components : [];
 }
@@ -89,6 +58,21 @@ export function getNetCount(result: PipelineResult | CircuitAnalysisResult | Por
   
   const netlist = getStageData(result as PipelineResult, "topology").netlist_v2;
   return (result as PipelineResult).net_count || netlist?.nets?.length || 0;
+}
+
+const RISK_LABELS: Record<string, string> = {
+  safe: "安全",
+  low: "低风险",
+  warning: "注意",
+  danger: "高风险",
+  fatal: "严重",
+  unknown: "未评估",
+};
+
+/** Map a backend risk_level enum to a Chinese label (falls back to the raw value). */
+export function riskLabel(risk: string | undefined | null): string {
+  if (!risk) return "等待诊断";
+  return RISK_LABELS[risk] ?? risk;
 }
 
 export function asPercent(value: number | undefined) {

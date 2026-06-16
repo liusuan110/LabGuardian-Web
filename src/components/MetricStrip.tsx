@@ -1,6 +1,6 @@
 import { CircuitBoard, Gauge, GitBranch, ShieldCheck } from "lucide-react";
 import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../types/pipeline";
-import { asPercent, getNetCount } from "../utils/pipeline";
+import { asPercent, getNetCount, riskLabel } from "../utils/pipeline";
 
 type Props = {
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null;
@@ -25,7 +25,7 @@ export function MetricStrip({ result }: Props) {
     },
     {
       label: "风险",
-      value: result && "risk_level" in result ? result.risk_level : "-",
+      value: result && "risk_level" in result ? riskLabel(result.risk_level) : "-",
       icon: <ShieldCheck size={18} />,
     },
   ];

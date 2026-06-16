@@ -4,8 +4,6 @@ import type {
   PipelineRequest,
   PipelineResult,
   VersionInfo,
-  CircuitAnalysisResult,
-  PortVisualizationResult,
 } from "../types/pipeline";
 
 export async function getHealth() {
@@ -25,20 +23,6 @@ export async function runPipeline(request: PipelineRequest) {
 
 export async function recomputeCorrected(request: CorrectedRecomputeRequest) {
   return requestJson<PipelineResult>("/api/v1/pipeline/recompute-corrected", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function analyzeCircuit(request: PipelineRequest) {
-  return requestJson<CircuitAnalysisResult>("/api/v1/pipeline/analyze", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function visualizePorts(request: PipelineRequest) {
-  return requestJson<PortVisualizationResult>("/api/v1/pipeline/visualize/ports", {
     method: "POST",
     body: JSON.stringify(request),
   });

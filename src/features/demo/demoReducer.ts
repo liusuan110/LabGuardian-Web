@@ -77,6 +77,7 @@ export type DemoAction =
   | { type: "corrected-recompute-success"; result: PipelineResult }
   | { type: "run-success"; result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult }
   | { type: "run-error"; error: string }
+  | { type: "clear-error" }
   | { type: "agent-start"; prompt: string; placeholderId: string }
   | { type: "agent-progress"; phase: AgentProgressPhase }
   | { type: "agent-success"; result: AgentStatusResponse }
@@ -318,6 +319,12 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       };
     case "run-error":
       return { ...state, runState: "error", error: action.error };
+    case "clear-error":
+      return {
+        ...state,
+        error: "",
+        runState: state.runState === "error" ? (state.file ? "ready" : "idle") : state.runState,
+      };
     case "agent-start":
       return {
         ...state,
@@ -357,6 +364,13 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       const hasSending = state.chatMessages.some(
         (m) => m.role === "assistant" && (m.status === "sending" || m.status === "streaming"),
       );
+      // Defense-in-depth: if there is no pending placeholder, this result is a
+      // late arrival from a run that a reset (e.g. a new upload) already
+      // discarded. Drop it instead of appending a phantom permanently-streaming
+      // bubble that never resolves.
+      if (!hasSending) {
+        return state;
+      }
       const updated = state.chatMessages.map((msg) => {
         if (msg.role === "assistant" && (msg.status === "sending" || msg.status === "streaming")) {
           return {
@@ -374,29 +388,11 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         }
         return msg;
       });
-      const finalMessages = hasSending
-        ? updated
-        : [
-            ...updated,
-            {
-              id: createClientId(),
-              role: "assistant" as const,
-              content: "",
-              streamedContent: "",
-              pendingAnswer: fullAnswer,
-              createdAt: Date.now(),
-              status: "streaming" as const,
-              actions: result?.actions,
-              citations: result?.citations,
-              evidence: result?.evidence,
-              followUps: result?.follow_up_suggestions,
-            },
-          ];
       return {
         ...state,
         agentStatus: "success",
         agentResult: action.result,
-        chatMessages: finalMessages,
+        chatMessages: updated,
       };
     }
     case "chat-stream-tick":

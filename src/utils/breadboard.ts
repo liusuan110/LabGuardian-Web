@@ -532,69 +532,6 @@ export function buildBreadboardModel(
   //           then push into the model using the recomputed netId.
   const staged: StagedPin[] = [];
 
-  // PortVisualizationResult: 最干净的数据源
-  if ("ports" in result && Array.isArray((result as PortVisualizationResult).ports)) {
-    const r = result as PortVisualizationResult;
-    r.ports.forEach((p) => {
-      const addr0 = parseHoleId(p.hole_id) ?? parseHoleId(`${p.col_name}${p.row_number}`);
-      const componentId = p.component_id;
-      const pinName = p.pin_name || `pin${p.pin_id}`;
-      if (!addr0) {
-        recordUnresolvedPin(componentId, p.component_type, pinName, p.hole_id);
-        return;
-      }
-      const fixed = applyCorrection(componentId, pinName, addr0, p.hole_id);
-      staged.push({
-        componentId,
-        componentType: p.component_type,
-        pinName,
-        addr: fixed.addr,
-        holeId: fixed.holeId,
-        originalNetId: p.net_id || "UNKNOWN",
-        corrected: fixed.corrected,
-        electricalNodeId: p.net_id || "UNKNOWN",
-      });
-    });
-    r.nets?.forEach((n) => {
-      if (n.net_name) model.netLabels.set(n.net_id, n.net_name);
-      if (n.power_role) model.netRoles.set(n.net_id, n.power_role.toUpperCase());
-    });
-    finalizeStagedPins(model, staged);
-    return model;
-  }
-
-  // CircuitAnalysisResult
-  if ("components" in result && Array.isArray((result as CircuitAnalysisResult).nets)) {
-    const r = result as CircuitAnalysisResult;
-    r.components.forEach((comp) => {
-      comp.pins.forEach((pin) => {
-        const netId = pin.electrical_net_id || pin.electrical_node_id || "UNKNOWN";
-        const addr0 = parseHoleId(pin.hole_id);
-        const pinName = pin.pin_name || `pin${pin.pin_id}`;
-        if (!addr0) {
-          recordUnresolvedPin(comp.component_id, comp.component_type, pinName, pin.hole_id);
-          return;
-        }
-        const fixed = applyCorrection(comp.component_id, pinName, addr0, pin.hole_id);
-        staged.push({
-          componentId: comp.component_id,
-          componentType: comp.component_type,
-          pinName,
-          addr: fixed.addr,
-          holeId: fixed.holeId,
-          originalNetId: netId,
-          corrected: fixed.corrected,
-          electricalNodeId: pin.electrical_node_id || "UNKNOWN",
-        });
-      });
-    });
-    r.nets?.forEach((n) => {
-      if (n.power_role) model.netRoles.set(n.electrical_net_id, n.power_role.toUpperCase());
-    });
-    finalizeStagedPins(model, staged);
-    return model;
-  }
-
   // PipelineResult: 走 mapping 阶段
   const mapping = getStageData(result, "mapping");
   const components = (mapping.components as PipelineResult["stages"][number]["data"]["components"]) ?? [];
@@ -722,9 +659,13 @@ export function buildCorrectionPatch(
     (result as PortVisualizationResult).ports.forEach((p) => {
       addOriginal(p.component_id, p.pin_name || `pin${p.pin_id}`, p.hole_id);
     });
-  } else if ("components" in result && Array.isArray((result as CircuitAnalysisResult).nets)) {
+  } else if (
+    "components" in result &&
+    Array.isArray((result as CircuitAnalysisResult).components) &&
+    Array.isArray((result as CircuitAnalysisResult).nets)
+  ) {
     (result as CircuitAnalysisResult).components.forEach((comp) => {
-      comp.pins.forEach((pin) => {
+      (comp.pins ?? []).forEach((pin) => {
         addOriginal(comp.component_id, pin.pin_name || `pin${pin.pin_id}`, pin.hole_id);
       });
     });

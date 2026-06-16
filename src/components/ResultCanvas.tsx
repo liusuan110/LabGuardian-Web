@@ -294,9 +294,16 @@ export function ResultCanvas({ imageUrl, result, mode, highlightTargets = [] }: 
       setImage(null);
       return;
     }
+    let cancelled = false;
     const nextImage = new Image();
-    nextImage.onload = () => setImage(nextImage);
+    nextImage.onload = () => {
+      if (!cancelled) setImage(nextImage);
+    };
     nextImage.src = imageUrl;
+    return () => {
+      cancelled = true;
+      nextImage.onload = null;
+    };
   }, [imageUrl]);
 
   useEffect(() => {

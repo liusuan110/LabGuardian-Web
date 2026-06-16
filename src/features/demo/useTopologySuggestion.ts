@@ -66,9 +66,13 @@ export function useTopologySuggestion(pipelineResult: AnyPipelineResult) {
     : null;
 
   useEffect(() => {
-    // Reset to clean slate when there's no netlist (e.g. before first run).
+    // Reset to clean slate when there's no netlist (e.g. before first run, or
+    // after a new upload resets pipelineResult). Bump the request nonce so an
+    // in-flight fetch from the previous result can't re-populate a stale
+    // suggestion after the reset.
     if (!netlistV2 || signature === null) {
       lastSignatureRef.current = null;
+      requestNonceRef.current += 1;
       setSuggestion(null);
       setLoading(false);
       setError(null);

@@ -1,6 +1,8 @@
-import { useReducer } from "react";
+import { X } from "lucide-react";
+import { useEffect, useReducer } from "react";
 import { AgentChat } from "../../components/AgentChat";
 import { AppHeader } from "../../components/AppHeader";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
 import { MetricStrip } from "../../components/MetricStrip";
 import { ModeTabs } from "../../components/ModeTabs";
@@ -48,6 +50,15 @@ export function DemoPage() {
   const { execute } = usePipelineRun(state, dispatch, send);
   // CADx Phase 1 — auto-fetch GNN-A suggestion when pipeline produces netlist_v2.
   const topologySuggestion = useTopologySuggestion(state.pipelineResult);
+
+  // Free the previous object URL when the image changes or on unmount, so
+  // re-uploading repeatedly doesn't leak blob URLs.
+  useEffect(() => {
+    const url = state.imageUrl;
+    return () => {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    };
+  }, [state.imageUrl]);
 
   const cr = parseComparisonReport(state.pipelineResult);
   const rawItems = cr?.items ?? [];
@@ -152,7 +163,19 @@ export function DemoPage() {
 
       <MetricStrip result={state.pipelineResult} />
 
-      {state.error ? <div className="error-banner">{state.error}</div> : null}
+      {state.error ? (
+        <div className="error-banner" role="alert">
+          <span>{state.error}</span>
+          <button
+            type="button"
+            className="error-banner-close"
+            aria-label="关闭提示"
+            onClick={() => dispatch({ type: "clear-error" })}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ) : null}
 
       <section className="demo-grid">
         <div className="left-column">
@@ -197,6 +220,7 @@ export function DemoPage() {
           </div>
 
           <div className="stage-body">
+            <ErrorBoundary compact label="电路画布">
             {state.activeMode === "netlist" ? (
               <NetlistView
                 result={state.pipelineResult}
@@ -238,23 +262,33 @@ export function DemoPage() {
             ) : (
               <ResultCanvas imageUrl={state.imageUrl} result={state.pipelineResult} mode={state.activeMode} highlightTargets={highlightTargets} />
             )}
+            </ErrorBoundary>
           </div>
         </section>
 
-        <DiagnosticsPanel
-          result={state.pipelineResult}
-          selectedDiagnosticIndex={state.selectedDiagnosticIndex}
-          onSelectDiagnostic={(index) => dispatch({ type: "select-diagnostic", index })}
-        />
+        <ErrorBoundary compact label="诊断面板">
+          <DiagnosticsPanel
+            result={state.pipelineResult}
+            selectedDiagnosticIndex={state.selectedDiagnosticIndex}
+            onSelectDiagnostic={(index) => dispatch({ type: "select-diagnostic", index })}
+          />
+        </ErrorBoundary>
       </section>
 
-      <AgentChat
-        messages={state.chatMessages}
-        status={state.agentStatus}
-        canSend={Boolean(state.pipelineResult)}
-        modelLabel={actualModelLabel}
-        onSend={(message) => send(message)}
-      />
+      <ErrorBoundary compact label="诊断对话">
+        <AgentChat
+          messages={state.chatMessages}
+          status={state.agentStatus}
+          // Agent is now boot-ready: it can answer concept / lab questions
+          // without any pipeline result. When a pipeline result IS present,
+          // the agent grounds in the netlist + diagnostics; without one, it
+          // falls back to RAG + local concept library.
+          canSend={true}
+          hasPipelineContext={Boolean(state.pipelineResult)}
+          modelLabel={actualModelLabel}
+          onSend={(message) => send(message)}
+        />
+      </ErrorBoundary>
 
       <section className="bottom-grid">
         <StageTimeline

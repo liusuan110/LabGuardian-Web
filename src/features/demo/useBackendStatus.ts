@@ -20,10 +20,13 @@ export function useBackendStatus(dispatch: React.Dispatch<DemoAction>) {
         }
       } catch (error) {
         if (!cancelled) {
+          // Keep the raw error in the console for debugging, but show a clean
+          // status in the UI instead of leaking "HTTP 500" into the chip.
+          console.debug("[backend] health check failed:", error);
           dispatch({
             type: "backend",
             online: false,
-            message: error instanceof Error ? error.message : "后端不可用",
+            message: "后端离线",
           });
         }
       }

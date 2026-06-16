@@ -12,8 +12,8 @@ export function AppHeader({ online, message, stationId, version }: Props) {
   return (
     <header className="app-header">
       <div>
-        <p className="eyebrow">LabGuardian Ubuntu Demo</p>
-        <h1>面包板电路完整诊断演示</h1>
+        <p className="eyebrow">LabGuardian</p>
+        <h1>面包板电路智能诊断</h1>
       </div>
       <div className="header-cluster">
         <div className={`status-chip ${online ? "online" : "offline"}`}>

@@ -7,6 +7,13 @@ type Props = {
   messages: ChatMessage[];
   status: "idle" | "running" | "success" | "error";
   canSend: boolean;
+  /**
+   * When true, the parent has a pipeline result available so the agent
+   * can ground in netlist + diagnostics. When false, the agent still
+   * works (concept / lab questions via RAG) but the empty-state copy
+   * encourages running a diagnosis for circuit-specific questions.
+   */
+  hasPipelineContext?: boolean;
   onSend: (message: string) => Promise<void>;
   modelLabel?: string;
 };
@@ -158,7 +165,14 @@ function AgentAnswerText({ text, streaming }: { text: string; streaming: boolean
   );
 }
 
-export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }: Props) {
+export function AgentChat({
+  messages,
+  status,
+  canSend,
+  hasPipelineContext = false,
+  onSend,
+  modelLabel = "",
+}: Props) {
   const [draft, setDraft] = useState("");
   const isRunning = status === "running";
   const threadRef = useRef<HTMLDivElement>(null);
@@ -209,9 +223,9 @@ export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }
       <div className="chat-thread" ref={threadRef}>
         {messages.length === 0 && (
           <div className="chat-empty">
-            {canSend
-              ? "运行完整诊断后，Agent 会自动生成第一轮解释。之后可继续追问。"
-              : "请先运行完整诊断"}
+            {hasPipelineContext
+              ? "已识别到电路，Agent 可基于当前 netlist 回答；可问诊断、原理或操作步骤。"
+              : "系统已就绪。可以直接问电路原理、元件用法、操作步骤；上传电路后还能针对具体接线诊断。"}
           </div>
         )}
 
@@ -320,7 +334,11 @@ export function AgentChat({ messages, status, canSend, onSend, modelLabel = "" }
           className="chat-textarea"
           rows={1}
           value={draft}
-          placeholder={canSend ? "继续追问，例如：为什么判断这个引脚悬空？" : "请先运行完整诊断"}
+          placeholder={
+            hasPipelineContext
+              ? "继续追问，例如：为什么判断这个引脚悬空？"
+              : "可以问，例如：什么是 RC 时间常数？UA741 pin2 接什么？"
+          }
           disabled={!canSend || isRunning}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}

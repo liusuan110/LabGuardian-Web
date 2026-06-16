@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import { askAgent, waitForAgentResult } from "../../api/agent";
 import type { ChatMessage } from "../../types/agent";
 import type { PipelineResult, CircuitAnalysisResult, PortVisualizationResult } from "../../types/pipeline";
@@ -20,21 +21,6 @@ function buildDiagnosisContext(
   result: PipelineResult | CircuitAnalysisResult | PortVisualizationResult | null,
 ) {
   if (!result) return {};
-
-  const isCircuitAnalysis = "components" in result && !("similarity" in result);
-
-  if (isCircuitAnalysis) {
-    const circuitResult = result as CircuitAnalysisResult;
-    return {
-      job_id: circuitResult.job_id ?? "",
-      component_count: circuitResult.component_count ?? 0,
-      net_count: circuitResult.net_count ?? 0,
-      risk_level: "unknown",
-      components: circuitResult.components ?? [],
-      nets: circuitResult.nets ?? [],
-      circuit_description: circuitResult.circuit_description ?? "",
-    };
-  }
 
   const pipelineResult = result as PipelineResult;
   const topology = getStageData(pipelineResult, "topology");
@@ -79,29 +65,59 @@ const STREAM_INTERVAL_MS = 25;
 const STREAM_CHARS_PER_TICK = 2;
 
 export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoAction>) {
+  // Active timer ids (progress setTimeouts + the streaming setInterval) plus a
+  // generation token. Uploading a 2nd image changes `state.imageUrl`, which
+  // fires the cleanup effect below: it bumps the generation and tears down any
+  // in-flight stream. Combined with the `isStale()` guards in `send()`, this
+  // guarantees a previous image's agent run can never dispatch into the
+  // freshly-reset store — the root cause of the second-upload crash.
+  const timersRef = useRef<number[]>([]);
+  const generationRef = useRef(0);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach((id) => {
+      window.clearTimeout(id);
+      window.clearInterval(id);
+    });
+    timersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    // A new upload (imageUrl identity change) or unmount invalidates in-flight work.
+    generationRef.current += 1;
+    clearTimers();
+    return () => {
+      generationRef.current += 1;
+      clearTimers();
+    };
+  }, [state.imageUrl, clearTimers]);
+
   async function send(prompt: string, resultOverride?: PipelineResult) {
     const trimmed = prompt.trim();
     if (!trimmed || state.agentStatus === "running") return;
 
-    const contextResult = resultOverride ?? state.pipelineResult;
-    const jobId = extractJobId(contextResult);
+    const myGeneration = generationRef.current;
+    const isStale = () => generationRef.current !== myGeneration;
 
-    if (!jobId) {
-      dispatch({
-        type: "agent-error",
-        error: "当前没有有效的诊断任务 ID",
-      });
-      return;
-    }
+    const contextResult = resultOverride ?? state.pipelineResult;
+    // Agent is now boot-ready. If no pipeline has run yet we synthesize a
+    // session-scoped job_id so the backend can track the conversation; the
+    // diagnosis_context will be empty and the backend will route through
+    // concept_tutor / lab_guidance branches (RAG over local KB).
+    const jobId =
+      extractJobId(contextResult) ||
+      `chat-session-${state.stationId}-${createClientId()}`;
 
     const placeholderId = createClientId();
     dispatch({ type: "agent-start", prompt: trimmed, placeholderId });
 
     const progressTimers = PROGRESS_TIMINGS.map(({ phase, at }) =>
       window.setTimeout(() => {
+        if (isStale()) return;
         dispatch({ type: "agent-progress", phase });
       }, at),
     );
+    timersRef.current.push(...progressTimers);
     const clearProgressTimers = () => progressTimers.forEach((id) => window.clearTimeout(id));
 
     try {
@@ -116,8 +132,14 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
         diagnosis_context: buildDiagnosisContext(contextResult),
         locale: "zh-CN",
       });
-      const agentResult = await waitForAgentResult(accepted.job_id);
+      // Pass the staleness check so polling stops promptly once a new upload
+      // has invalidated this run, instead of hammering the backend for ~108s.
+      const agentResult = await waitForAgentResult(accepted.job_id, isStale);
       clearProgressTimers();
+
+      // A newer upload/run invalidated us while awaiting — drop the result so
+      // it can't land in the reset store as a phantom "thinking" bubble.
+      if (isStale()) return;
 
       if (agentResult.status === "failed") {
         dispatch({ type: "agent-error", error: agentResult.error || "Agent 诊断失败" });
@@ -135,6 +157,11 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
       await new Promise<void>((resolve) => {
         let written = 0;
         const interval = window.setInterval(() => {
+          if (isStale()) {
+            window.clearInterval(interval);
+            resolve();
+            return;
+          }
           written += STREAM_CHARS_PER_TICK;
           if (written >= fullAnswer.length) {
             window.clearInterval(interval);
@@ -144,9 +171,11 @@ export function useAgentChat(state: DemoState, dispatch: React.Dispatch<DemoActi
             dispatch({ type: "chat-stream-tick", messageId: placeholderId, chars: STREAM_CHARS_PER_TICK });
           }
         }, STREAM_INTERVAL_MS);
+        timersRef.current.push(interval);
       });
     } catch (error) {
       clearProgressTimers();
+      if (isStale()) return;
       dispatch({
         type: "agent-error",
         error: error instanceof Error ? error.message : "Agent 诊断失败",

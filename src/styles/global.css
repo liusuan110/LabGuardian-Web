@@ -4,18 +4,24 @@
 :root {
   color-scheme: light;
   --ink: #17211f;
+  /* `--text` is referenced throughout the sheet; alias it to --ink so those
+     rules resolve to the intended foreground instead of inheriting. */
+  --text: #17211f;
   --muted: #60706b;
   --subtle: #80908b;
-  --line: #d8e1dd;
+  --line: #d6e1e5;
   --surface: #ffffff;
-  --surface-soft: #f6f9f8;
-  --band: #edf4f1;
-  --accent: #14796b;
-  --accent-dark: #0f5e54;
+  --surface-soft: #f7faf9;
+  --band: #eef7f4;
+  --accent: #10796f;
+  --accent-dark: #0b5f59;
   --blue: #2563eb;
   --warn: #b7791f;
   --danger: #be3144;
-  --shadow: 0 18px 48px rgba(21, 47, 42, 0.12);
+  --radius: 8px;
+  --shadow: 0 18px 45px rgba(32, 54, 64, 0.1);
+  --shadow-soft: 0 10px 30px rgba(32, 54, 64, 0.075);
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, "Courier New", monospace;
 }
 
 * {
@@ -122,7 +128,7 @@ h2 {
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -816,12 +822,33 @@ h2 {
 }
 
 .error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
   padding: 12px 14px;
   border: 1px solid #e6a1ad;
   border-radius: 8px;
   background: #fff1f3;
   font-weight: 800;
+}
+
+.error-banner-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--danger);
+}
+
+.error-banner-close:hover {
+  background: #ffe1e6;
 }
 
 .net-role-select {
@@ -1261,6 +1288,15 @@ h2 {
   .demo-grid,
   .bottom-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Once the columns stack, the fixed 820px heights become nested scroll
+     traps — let the panels grow to their content instead. */
+  .main-stage,
+  .left-column,
+  .diagnostics-panel {
+    height: auto;
+    min-height: 0;
   }
 
   .diagnostics-panel {
@@ -3938,23 +3974,7 @@ h2 {
 }
 
 /* ===== Visual refresh: layout polish only ===== */
-:root {
-  --ink: #17211f;
-  --muted: #60706b;
-  --subtle: #80908b;
-  --line: #d6e1e5;
-  --surface: #ffffff;
-  --surface-soft: #f7faf9;
-  --band: #eef7f4;
-  --accent: #10796f;
-  --accent-dark: #0b5f59;
-  --blue: #2563eb;
-  --warn: #b7791f;
-  --danger: #be3144;
-  --shadow: 0 18px 45px rgba(32, 54, 64, 0.1);
-  --shadow-soft: 0 10px 30px rgba(32, 54, 64, 0.075);
-  --radius: 8px;
-}
+/* Design tokens are consolidated into the single :root block at the top. */
 
 html {
   background: #edf3f6;
@@ -3995,8 +4015,9 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible,
 .comparison-diff-card[role="button"]:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
 .app-shell {

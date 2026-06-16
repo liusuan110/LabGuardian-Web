@@ -21,8 +21,16 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export async function waitForAgentResult(jobId: string) {
+/**
+ * Poll for an agent job's result. `isCancelled` lets the caller abort the
+ * loop (e.g. the user uploaded a new image), so a stale run stops hitting the
+ * backend promptly instead of polling for the full ~108s window.
+ */
+export async function waitForAgentResult(jobId: string, isCancelled?: () => boolean) {
   for (let attempt = 0; attempt < MAX_POLLS; attempt += 1) {
+    if (isCancelled?.()) {
+      throw new Error("AGENT_POLL_CANCELLED");
+    }
     const status = await getAgentStatus(jobId);
     if (status.status === "completed" || status.status === "failed") {
       return status;
