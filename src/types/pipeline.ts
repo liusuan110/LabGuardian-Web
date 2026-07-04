@@ -263,60 +263,6 @@ export type PortAnnotationApplied = {
   pin_name?: string;
 };
 
-export type GnnCandidate = {
-  net: string;
-  p_connect: number;
-  rank: number;
-  /** Human-readable label such as "GND (地)" or "VOUT (输出)". When the
-   *  rule↔cur alignment was successful, this is set by the backend
-   *  `gnn_display` enricher. Falls back to the raw `net` id otherwise. */
-  net_display?: string;
-};
-
-export type GnnSuggestedTarget = {
-  port: string;
-  reason: "likely_wrong" | "floating_required" | string;
-  current_nets: string[];
-  top_p_connect: number;
-  candidates: GnnCandidate[];
-  /** "U1 · pin2 (反相输入)" — set when ref↔cur alignment succeeded. */
-  port_display?: string;
-  /** Parallel array to `current_nets`, with human-readable labels. */
-  current_nets_display?: string[];
-};
-
-export type GnnEdgePrediction = {
-  edge: [string, string];
-  p_correct: number;
-  verdict: "ok" | "likely_wrong" | string;
-  edge_display?: [string, string];
-};
-
-export type GnnHotspot = {
-  node: string;
-  score: number;
-  hint?: string;
-  node_display?: string;
-};
-
-export type GnnAdvice = {
-  enabled?: boolean;
-  model_version?: string;
-  graph_similarity?: number;
-  graph_similarity_confidence?: number;
-  progress_score?: number | null;
-  n_edges_scored?: number;
-  n_suggestion_candidates_scored?: number;
-  inference_ms?: number;
-  edge_predictions?: GnnEdgePrediction[];
-  hotspots?: GnnHotspot[];
-  suggested_targets?: GnnSuggestedTarget[];
-  predicted_error_types?: unknown[];
-  component_mapping_topk?: Record<string, unknown[]>;
-  net_mapping_topk?: Record<string, unknown[]>;
-  disagreement_with_rule?: boolean;
-};
-
 export type ComparisonReport = {
   version?: string;
   summary?: {
@@ -341,19 +287,6 @@ export type ComparisonReport = {
     port_annotations_applied?: PortAnnotationApplied[];
     ref_to_current_component_mapping?: Record<string, string>;
     ref_to_current_net_mapping?: Record<string, string>;
-    gnn?: GnnAdvice;
-    /**
-     * Set by `app/domain/compare/orchestrator.py:_maybe_attach_gnn_advice`
-     * when the advisor silently sits out the call. Mutually exclusive
-     * with `gnn`. See backend docstring for the five reason codes.
-     */
-    gnn_disabled_reason?:
-      | "runtime_unavailable"
-      | "checkpoint_missing"
-      | "tiny_circuit"
-      | "trigger_predicate_skipped"
-      | "model_failed"
-      | string;
   };
   ref_to_current_component_mapping?: Record<string, string>;
   ref_to_current_net_mapping?: Record<string, string>;

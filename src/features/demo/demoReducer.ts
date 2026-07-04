@@ -109,7 +109,7 @@ export const initialDemoState: DemoState = {
   error: "",
   conf: 0.25,
   iou: 0.5,
-  imgsz: 960,
+  imgsz: 640,
   rails: {
     top_plus: "VCC",
     top_minus: "VEE",

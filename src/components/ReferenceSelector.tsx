@@ -1,7 +1,5 @@
 import { Cpu } from "lucide-react";
 import type { LogicalReference, ReferenceSummary } from "../types/pipeline";
-import type { TopologySuggestResponse } from "../types/topology";
-import { TopologySuggestionBanner } from "./TopologySuggestionBanner";
 
 type Props = {
   references: ReferenceSummary[];
@@ -12,15 +10,6 @@ type Props = {
   currentReferenceStatus: "idle" | "loading" | "success" | "error";
   currentReferenceError: string;
   onChange: (referenceId: string | null) => void;
-  /**
-   * CADx Phase 1 — AI topology suggestion (GNN-A) plumbing.
-   * All four props are optional so the component stays backwards-compatible
-   * with callers that haven't wired the suggestion fetcher yet.
-   */
-  topologySuggestion?: TopologySuggestResponse | null;
-  topologySuggestionLoading?: boolean;
-  topologySuggestionError?: string | null;
-  onRetryTopologySuggestion?: () => void;
 };
 
 /**
@@ -53,10 +42,6 @@ export function ReferenceSelector({
   currentReferenceStatus,
   currentReferenceError,
   onChange,
-  topologySuggestion = null,
-  topologySuggestionLoading = false,
-  topologySuggestionError = null,
-  onRetryTopologySuggestion,
 }: Props) {
   const selected = references.find((item) => item.reference_id === selectedReferenceId);
   const selectedName = currentReference?.name ?? selected?.name ?? selectedReferenceId ?? "";
@@ -68,31 +53,12 @@ export function ReferenceSelector({
   const icSubtypes = extractReferenceIcSubtypes(currentReference);
   const uniqueSubtypes = Array.from(new Set(icSubtypes.map((item) => item.subtype)));
 
-  // CADx Phase 1: AI 推荐面板浮在手动选择上方。可见性策略：
-  //   - 有 suggestion / loading / error 任一时显示
-  //   - 完全 idle 时隐藏（首次 pipeline 跑完前）
-  const showSuggestionBanner =
-    topologySuggestion !== null ||
-    topologySuggestionLoading ||
-    topologySuggestionError !== null;
-
   return (
     <section className="reference-panel">
       <div className="section-title">逻辑参考电路</div>
       <p className="muted">
         参考电路只用于逻辑拓扑比较，不要求面包板孔位、元件编号或跳线走向一致。
       </p>
-
-      {showSuggestionBanner ? (
-        <TopologySuggestionBanner
-          suggestion={topologySuggestion}
-          loading={topologySuggestionLoading}
-          error={topologySuggestionError}
-          selectedReferenceId={selectedReferenceId}
-          onAdopt={(refId) => onChange(refId)}
-          onRetry={() => onRetryTopologySuggestion?.()}
-        />
-      ) : null}
 
       <select
         value={selectedReferenceId ?? ""}
