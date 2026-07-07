@@ -193,7 +193,19 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
   const isLogicalGraph = summary?.comparison_mode === "logical_graph";
   const logicCorrect = summary?.logic_correct === true;
 
-  const similarity = typeof summary?.similarity === "number" ? summary.similarity : null;
+  // Debug: 让用户在 F12 → Console 里立刻能看到 GNN 链路的状态，
+  // 不用翻 Network 响应体。生产环境无副作用（console.debug 不打印）。
+  if (typeof window !== "undefined") {
+    console.debug("[GNN diag]", {
+      hasComparisonReport: cr !== null,
+      comparison_mode: summary?.comparison_mode,
+      isLogicalGraph,
+      logicCorrect,
+      gnn_present: !!summary?.gnn,
+      gnn_n_edges: summary?.gnn?.n_edges_scored,
+      gnn_disabled_reason: summary?.gnn_disabled_reason,
+    });
+  }
   const referenceName = summary?.reference_name;
   const totalItemCount = typeof summary?.total_item_count === "number" ? summary.total_item_count : items.length;
 
@@ -236,8 +248,7 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
         </div>
         <strong>{hasPipelineFields ? riskLabel(result?.risk_level) : "等待诊断"}</strong>
         <p>
-          完成度 {hasPipelineFields && result && "progress" in result ? asPercent(result.progress) : "-"} · 相似度{" "}
-          {hasPipelineFields && result && "similarity" in result ? asPercent(result.similarity) : "-"}
+          完成度 {hasPipelineFields && result && "progress" in result ? asPercent(result.progress) : "-"}
         </p>
       </section>
 
@@ -253,9 +264,6 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
               ? "逻辑正确：当前电路与参考电路连接关系等价。"
               : "逻辑不一致"}
           </strong>
-          {similarity !== null ? (
-            <p className="comparison-summary-similarity">相似度 {asPercent(similarity)}</p>
-          ) : null}
           {referenceName ? (
             <p className="comparison-summary-ref">
               参考电路：{referenceName}
@@ -264,7 +272,6 @@ export function DiagnosticsPanel({ result, selectedDiagnosticIndex, onSelectDiag
           <div className="comparison-summary-grid">
             <span>comparison_mode</span><strong>{formatSummaryValue(summary?.comparison_mode)}</strong>
             <span>match_type</span><strong>{formatSummaryValue(summary?.match_type)}</strong>
-            <span>similarity</span><strong>{formatSummaryValue(summary?.similarity)}</strong>
             <span>progress</span><strong>{formatSummaryValue(summary?.progress)}</strong>
             <span>reference_id</span><strong>{formatSummaryValue(summary?.reference_id)}</strong>
             <span>reference_name</span><strong>{formatSummaryValue(summary?.reference_name)}</strong>
