@@ -1509,7 +1509,12 @@ export function BreadboardView({
           type="button"
           className="run-button correction-compare-button"
           onClick={onApplyCorrections}
-          disabled={(corrections.size === 0 && netRoleAssignments.size === 0 && pinPolarityAssignments.size === 0) || isApplyingCorrections}
+          disabled={(
+            corrections.size === 0 &&
+            portAnnotations.size === 0 &&
+            netRoleAssignments.size === 0 &&
+            pinPolarityAssignments.size === 0
+          ) || isApplyingCorrections}
           title={
             selectedReferenceId
               ? "将手工修正提交给后端，重算拓扑并与逻辑参考电路比较"
@@ -1523,10 +1528,13 @@ export function BreadboardView({
               : "确认修正并重算网表"}
         </button>
         <div className="manual-correction-meta">
-          {corrections.size > 0 || netRoleAssignments.size > 0 || pinPolarityAssignments.size > 0 ? (
+          {corrections.size > 0 || portAnnotations.size > 0 || netRoleAssignments.size > 0 || pinPolarityAssignments.size > 0 ? (
             <div className="manual-correction-counts">
               {corrections.size > 0 ? (
                 <span>当前 netlist 修正 {corrections.size} 项</span>
+              ) : null}
+              {portAnnotations.size > 0 ? (
+                <span>端口标注 {portAnnotations.size} 项</span>
               ) : null}
               {netRoleAssignments.size > 0 ? (
                 <span>端口语义标注 {netRoleAssignments.size} 项</span>
