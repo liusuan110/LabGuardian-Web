@@ -9,19 +9,6 @@ import type {
   PortVisualizationResult,
 } from "../types/pipeline";
 
-const STAGE_LABELS: Record<PipelineStageName, string> = {
-  detect: "S1 元件检测",
-  pin_detect: "S1.5 引脚定位",
-  mapping: "S2 孔位映射",
-  topology: "S3 网表拓扑",
-  validate: "S4 风险校验",
-  semantic_analysis: "S5 语义纠错",
-};
-
-export function stageLabel(stage: PipelineStageName) {
-  return STAGE_LABELS[stage] ?? stage;
-}
-
 export function getStage(result: PipelineResult | null, stage: PipelineStageName): StageResult | null {
   return (Array.isArray(result?.stages) ? result.stages : []).find((item) => item.stage === stage) ?? null;
 }
@@ -80,8 +67,3 @@ export function asPercent(value: number | undefined) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
-export function formatDuration(ms: number | undefined) {
-  if (!ms) return "0 ms";
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
-}

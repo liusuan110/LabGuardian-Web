@@ -7,10 +7,8 @@ import { DiagnosticsPanel } from "../../components/DiagnosticsPanel";
 import { MetricStrip } from "../../components/MetricStrip";
 import { ModeTabs } from "../../components/ModeTabs";
 import { NetlistView } from "../../components/NetlistView";
-import { RawJsonPanel } from "../../components/RawJsonPanel";
 import { ReferenceSelector } from "../../components/ReferenceSelector";
 import { ResultCanvas } from "../../components/ResultCanvas";
-import { StageTimeline } from "../../components/StageTimeline";
 import { UploadPanel } from "../../components/UploadPanel";
 import { recomputeCorrected } from "../../api/pipeline";
 import { buildCorrectionPatch } from "../../utils/breadboard";
@@ -273,19 +271,6 @@ export function DemoPage() {
         />
       </ErrorBoundary>
 
-      <section className="bottom-grid">
-        <StageTimeline
-          result={state.pipelineResult}
-          progress={state.pipelineProgress}
-          runState={state.runState}
-        />
-        <RawJsonPanel
-          pipeline={state.pipelineResult}
-          agent={state.agentResult}
-          selectedReferenceId={state.selectedReferenceId}
-          runtimeMetadata={state.pipelineResult && "runtime_metadata" in state.pipelineResult ? state.pipelineResult.runtime_metadata : null}
-        />
-      </section>
     </main>
   );
 }
