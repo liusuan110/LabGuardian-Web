@@ -1243,16 +1243,6 @@ h2 {
   margin-bottom: 4px;
 }
 
-.ic-annotation-panel .panel-heading h2 {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ic-annotation-table {
-  min-width: 620px;
-}
-
 .net-role-table {
   min-width: 760px;
 }
@@ -3498,51 +3488,6 @@ h2 {
 .reference-ic-subtype-binding svg {
   flex-shrink: 0;
   color: #2a8049;
-}
-
-/* IcAnnotationPanel · 芯片型号 (part_subtype) 徽章。
-   - bound (由参考自动绑定)  → 绿色，含 "来自参考" 后缀
-   - vision (视觉直出)        → 蓝色，无后缀
-   - empty (未识别)           → 灰色
-   样式与 .reference-ic-subtype-binding 的 chip 视觉协调一致。 */
-.ic-subtype-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-.ic-subtype-badge-bound {
-  background: #2a8049;
-  color: #fff;
-}
-
-.ic-subtype-badge-vision {
-  background: #2563eb;
-  color: #fff;
-}
-
-.ic-subtype-badge-empty {
-  background: #e5e7eb;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.ic-subtype-badge .ic-subtype-name {
-  font-family: var(--font-mono, ui-monospace, monospace);
-}
-
-.ic-subtype-badge-suffix {
-  font-size: 10px;
-  font-weight: 500;
-  opacity: 0.92;
-  padding-left: 4px;
-  border-left: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 .reference-ic-subtype-binding .ic-subtype-chip {

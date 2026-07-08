@@ -6,10 +6,8 @@ import type {
   ManualNetRoleAssignment,
   EvidenceRef,
   LogicalReference,
-  IcAnnotation,
 } from "../types/pipeline";
 import { BreadboardView } from "./BreadboardView";
-import { IcAnnotationPanel } from "./IcAnnotationPanel";
 import { NetRoleAssignmentPanel } from "./NetRoleAssignmentPanel";
 
 type Props = {
@@ -31,9 +29,6 @@ type Props = {
   pinPolarityAssignments?: Map<string, "E" | "B" | "C">;
   onPinPolarityChange?: (key: string, polarity: "E" | "B" | "C" | null) => void;
   onResetPinPolarities?: () => void;
-  icAnnotations?: Map<string, IcAnnotation>;
-  onIcAnnotationChange?: (key: string, annotation: IcAnnotation | null) => void;
-  onResetIcAnnotations?: () => void;
 };
 
 /**
@@ -59,26 +54,12 @@ export function NetlistView({
   pinPolarityAssignments,
   onPinPolarityChange,
   onResetPinPolarities,
-  icAnnotations,
-  onIcAnnotationChange,
-  onResetIcAnnotations,
 }: Props) {
   const ports = portAnnotations ?? new Map<string, PortAnnotation>();
   const roles = netRoleAssignments ?? new Map<string, ManualNetRoleAssignment>();
-  const ics = icAnnotations ?? new Map<string, IcAnnotation>();
 
   return (
     <>
-      {onIcAnnotationChange && onResetIcAnnotations ? (
-        <IcAnnotationPanel
-          result={result}
-          icAnnotations={ics}
-          onIcAnnotationChange={onIcAnnotationChange}
-          onResetIcAnnotations={onResetIcAnnotations}
-          onApplyAnnotations={onApplyCorrections}
-          isApplying={isApplyingCorrections}
-        />
-      ) : null}
       {onNetRoleChange && onResetNetRoles ? (
         <details className="net-role-advanced">
           <summary>

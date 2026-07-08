@@ -287,6 +287,11 @@ export type ComparisonReport = {
     port_annotations_applied?: PortAnnotationApplied[];
     ref_to_current_component_mapping?: Record<string, string>;
     ref_to_current_net_mapping?: Record<string, string>;
+    gnn?: {
+      n_edges_scored?: number;
+      [key: string]: unknown;
+    };
+    gnn_disabled_reason?: string;
   };
   ref_to_current_component_mapping?: Record<string, string>;
   ref_to_current_net_mapping?: Record<string, string>;

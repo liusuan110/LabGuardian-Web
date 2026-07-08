@@ -1,6 +1,5 @@
 import { runPipeline } from "../../api/pipeline";
 import type { PipelineStageName } from "../../types/pipeline";
-import { buildIcAnnotations } from "../../utils/icAnnotations";
 import { portAnnotationsToList } from "../../utils/portAnnotation";
 import type { DemoAction, DemoState } from "./demoReducer";
 
@@ -69,7 +68,6 @@ export function usePipelineRun(
         rail_assignments: state.rails,
         port_annotations: portAnnotationsToList(state.portAnnotations),
         net_role_assignments: Array.from(state.manualNetRoleAssignments.values()),
-        ic_annotations: buildIcAnnotations(state.pipelineResult, state.manualIcAnnotations),
       });
       stopProgress();
       dispatch({ type: "run-success", result: pipeline });
