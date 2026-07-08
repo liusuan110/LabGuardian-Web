@@ -437,13 +437,18 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "references-loading":
       return { ...state, referenceStatus: "loading", referenceError: "" };
     case "references-success": {
+      const visibleReferences = action.references.filter(
+        (item) =>
+          !item.reference_id.toLowerCase().includes("test") &&
+          !(item.name || "").toLowerCase().includes("test"),
+      );
       const preferredReference =
-        action.references.find((item) => item.reference_id === "diff_pair_current_source_ref") ??
-        action.references[0];
+        visibleReferences.find((item) => item.reference_id === "diff_pair_current_source_ref") ??
+        visibleReferences[0];
       return {
         ...state,
         referenceStatus: "success",
-        references: action.references,
+        references: visibleReferences,
         referenceError: "",
         selectedReferenceId:
           state.selectedReferenceId ??

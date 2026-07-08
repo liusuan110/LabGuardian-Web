@@ -33,6 +33,13 @@ function extractReferenceIcSubtypes(
   return out;
 }
 
+function isTestReference(item: ReferenceSummary): boolean {
+  return (
+    item.reference_id.toLowerCase().includes("test") ||
+    (item.name || "").toLowerCase().includes("test")
+  );
+}
+
 export function ReferenceSelector({
   references,
   selectedReferenceId,
@@ -43,7 +50,8 @@ export function ReferenceSelector({
   currentReferenceError,
   onChange,
 }: Props) {
-  const selected = references.find((item) => item.reference_id === selectedReferenceId);
+  const visibleReferences = references.filter((item) => !isTestReference(item));
+  const selected = visibleReferences.find((item) => item.reference_id === selectedReferenceId);
   const selectedName = currentReference?.name ?? selected?.name ?? selectedReferenceId ?? "";
   const selectedDescription = currentReference?.description ?? selected?.description;
   const componentCount = currentReference?.components?.length ?? selected?.component_count ?? 0;
@@ -66,7 +74,7 @@ export function ReferenceSelector({
         disabled={status === "loading"}
       >
         <option value="">不使用逻辑参考电路</option>
-        {references.map((ref) => (
+        {visibleReferences.map((ref) => (
           <option key={ref.reference_id} value={ref.reference_id}>
             {ref.name || ref.reference_id}
           </option>
@@ -81,7 +89,7 @@ export function ReferenceSelector({
           <span className="muted">请确认后端已实现 GET /api/v1/references</span>
         </p>
       ) : null}
-      {status === "success" && references.length === 0 ? (
+      {status === "success" && visibleReferences.length === 0 ? (
         <p className="muted">后端未返回任何逻辑参考电路。</p>
       ) : null}
 
